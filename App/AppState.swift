@@ -57,10 +57,7 @@ final class AppState: ObservableObject {
             guard !isBootstrapping else { return }
             settingsStore.saveRemap(remapSettings)
             syncRuntimeSettings()
-            let modeChanged =
-                needsActiveFilter(remap: oldValue, scroll: scrollSettings) !=
-                needsActiveFilter(remap: remapSettings, scroll: scrollSettings)
-            if enabled, modeChanged {
+            if enabled {
                 schedulePipelineReconfigure()
             }
         }
@@ -72,14 +69,13 @@ final class AppState: ObservableObject {
             settingsStore.saveScroll(scrollSettings)
             syncRuntimeSettings()
             scrollEngine.reset()
-            let modeChanged =
-                needsActiveFilter(remap: remapSettings, scroll: oldValue) !=
-                needsActiveFilter(remap: remapSettings, scroll: scrollSettings)
-            if enabled, modeChanged {
+            if enabled {
                 schedulePipelineReconfigure()
             }
         }
     }
+
+    @Published var profiles: [AppProfile] = []
 
     @Published var accessibilityTrusted: Bool = false
     @Published var statusMessage: String? = nil
@@ -97,6 +93,9 @@ final class AppState: ObservableObject {
     private let runtimeLock = NSLock()
     private var runtimeRemapSettings: RemapSettings = .default
     private var runtimeScrollSettings: ScrollSettings = .default
+    private var runtimeProfiles: [String: AppProfile] = [:]
+
+    private let frontmostAppTracker = FrontmostAppTracker()
 
     private var isBootstrapping = true
     private var isInternalDisable = false
@@ -113,9 +112,11 @@ final class AppState: ObservableObject {
         showInMenuBar = settings.general.showInMenuBar
         remapSettings = settings.remap
         scrollSettings = settings.scroll
+        profiles = settingsStore.loadProfiles()
 
         runtimeRemapSettings = remapSettings
         runtimeScrollSettings = scrollSettings
+        runtimeProfiles = Dictionary(uniqueKeysWithValues: profiles.map { ($0.bundleIdentifier, $0) })
 
         isBootstrapping = false
         refreshPermissions()
@@ -151,6 +152,32 @@ final class AppState: ObservableObject {
         _ = permissionManager.openAccessibilitySettings()
     }
 
+    // MARK: - Profile CRUD
+
+    func addProfile(_ profile: AppProfile) {
+        guard !profiles.contains(where: { $0.bundleIdentifier == profile.bundleIdentifier }) else { return }
+        profiles.append(profile)
+        persistProfiles()
+    }
+
+    func updateProfile(_ profile: AppProfile) {
+        guard let index = profiles.firstIndex(where: { $0.id == profile.id }) else { return }
+        profiles[index] = profile
+        persistProfiles()
+    }
+
+    func removeProfile(_ profile: AppProfile) {
+        profiles.removeAll { $0.id == profile.id }
+        persistProfiles()
+    }
+
+    private func persistProfiles() {
+        settingsStore.saveProfiles(profiles)
+        syncRuntimeSettings()
+        if enabled {
+            schedulePipelineReconfigure()
+        }
+    }
 
     private func persistGeneralSettings() {
         let general = GeneralSettings(enabled: enabled, showInMenuBar: showInMenuBar)
@@ -161,6 +188,7 @@ final class AppState: ObservableObject {
         runtimeLock.lock()
         runtimeRemapSettings = remapSettings
         runtimeScrollSettings = scrollSettings
+        runtimeProfiles = Dictionary(uniqueKeysWithValues: profiles.map { ($0.bundleIdentifier, $0) })
         runtimeLock.unlock()
     }
 
@@ -176,13 +204,32 @@ final class AppState: ObservableObject {
 
     private func runtimeSettingsSnapshot() -> (RemapSettings, ScrollSettings) {
         runtimeLock.lock()
-        let snapshot = (runtimeRemapSettings, runtimeScrollSettings)
+        let globalRemap = runtimeRemapSettings
+        let globalScroll = runtimeScrollSettings
+        let profilesMap = runtimeProfiles
         runtimeLock.unlock()
-        return snapshot
+
+        let bundleID = frontmostAppTracker.currentBundleID
+        let profile = bundleID.flatMap { profilesMap[$0] }
+
+        return (
+            resolvedRemap(global: globalRemap, override: profile?.remap),
+            resolvedScroll(global: globalScroll, override: profile?.scroll)
+        )
     }
 
-    private func currentNeedsActiveFilter() -> Bool {
-        MouseCraft.needsActiveFilter(remap: remapSettings, scroll: scrollSettings)
+    private func anyConfigNeedsActiveFilter() -> Bool {
+        if needsActiveFilter(remap: remapSettings, scroll: scrollSettings) {
+            return true
+        }
+        for profile in profiles {
+            let r = resolvedRemap(global: remapSettings, override: profile.remap)
+            let s = resolvedScroll(global: scrollSettings, override: profile.scroll)
+            if needsActiveFilter(remap: r, scroll: s) {
+                return true
+            }
+        }
+        return false
     }
 
     private func reconfigurePipeline() {
@@ -203,7 +250,7 @@ final class AppState: ObservableObject {
         }
 
         syncRuntimeSettings()
-        let mode: EventTapManager.Mode = currentNeedsActiveFilter() ? .activeFilter : .listenOnly
+        let mode: EventTapManager.Mode = anyConfigNeedsActiveFilter() ? .activeFilter : .listenOnly
         let started = eventTap.start(mode: mode) { [weak self] sample in
             self?.handleEvent(sample) ?? .passThrough
         }

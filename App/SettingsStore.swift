@@ -15,6 +15,8 @@ final class SettingsStore {
         static let scrollSmoothness = "settings.scroll.smoothness"
         static let scrollSpeed = "settings.scroll.speed"
         static let scrollInvert = "settings.scroll.invertMouseScroll"
+
+        static let profiles = "settings.profiles"
     }
 
     private let defaults: UserDefaults
@@ -68,12 +70,40 @@ final class SettingsStore {
         stampVersion()
     }
 
+    func loadProfiles() -> [AppProfile] {
+        guard let data = defaults.data(forKey: Key.profiles) else { return [] }
+        do {
+            return try JSONDecoder().decode([AppProfile].self, from: data)
+        } catch {
+            #if DEBUG
+            print("[MouseCraft] SettingsStore: Failed to decode profiles: \(error)")
+            #endif
+            return []
+        }
+    }
+
+    func saveProfiles(_ profiles: [AppProfile]) {
+        do {
+            let data = try JSONEncoder().encode(profiles)
+            defaults.set(data, forKey: Key.profiles)
+        } catch {
+            #if DEBUG
+            print("[MouseCraft] SettingsStore: Failed to encode profiles: \(error)")
+            #endif
+        }
+        stampVersion()
+    }
+
     private func stampVersion() {
         defaults.set(AppSettings.schemaVersion, forKey: Key.schemaVersion)
     }
 
     private func migrate(from: Int, to: Int) {
-        // v0.1 has no backward-compat migrations yet; keep defaults for unknown schema.
+        if from < 2 {
+            // v1 → v2: Profiles are a new additive feature.
+            // Global settings keys unchanged; profiles key simply doesn't exist yet.
+            defaults.set(2, forKey: Key.schemaVersion)
+        }
     }
 
     private func preset(from raw: String?, fallback: RemapActionPreset) -> RemapActionPreset {
