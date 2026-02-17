@@ -24,7 +24,7 @@ struct MouseCraftApp: App {
                     }
                 }
         }
-        .defaultSize(width: 560, height: 420)
+        .defaultSize(width: 640, height: 480)
     }
 }
 
