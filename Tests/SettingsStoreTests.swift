@@ -35,14 +35,16 @@ final class SettingsStoreTests: XCTestCase {
 
         store.saveGeneral(GeneralSettings(enabled: true, showInMenuBar: false))
         store.saveRemap(RemapSettings(enabled: true, button4Preset: .copy, button5Preset: .paste))
-        store.saveScroll(ScrollSettings(enabled: true, smoothness: .high, speed: 2.25, invertMouseScroll: true))
+        store.saveScroll(ScrollSettings(enabled: true, smoothness: .high, speed: 2.25,
+                                        acceleration: 0.8, momentum: 0.3, invertMouseScroll: true))
 
         let loaded = store.load()
 
         XCTAssertEqual(loaded.general.enabled, true)
         XCTAssertEqual(loaded.general.showInMenuBar, false)
         XCTAssertEqual(loaded.remap, RemapSettings(enabled: true, button4Preset: .copy, button5Preset: .paste))
-        XCTAssertEqual(loaded.scroll, ScrollSettings(enabled: true, smoothness: .high, speed: 2.25, invertMouseScroll: true))
+        XCTAssertEqual(loaded.scroll, ScrollSettings(enabled: true, smoothness: .high, speed: 2.25,
+                                                     acceleration: 0.8, momentum: 0.3, invertMouseScroll: true))
     }
 
     func testScrollSpeedIsClampedToAllowedRange() {
@@ -161,5 +163,61 @@ final class SettingsStoreTests: XCTestCase {
     func testImportInvalidJSONThrows() {
         let badData = Data("{ not valid json }}}".utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(SettingsExport.self, from: badData))
+    }
+
+    // MARK: - Scroll Physics Fields
+
+    func testScrollAccelerationIsClampedToAllowedRange() {
+        let store = SettingsStore(defaults: defaults)
+
+        store.saveScroll(ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                        acceleration: 5.0, momentum: 0.5, invertMouseScroll: false))
+        XCTAssertEqual(store.load().scroll.acceleration, 1.0)
+
+        store.saveScroll(ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                        acceleration: -1.0, momentum: 0.5, invertMouseScroll: false))
+        XCTAssertEqual(store.load().scroll.acceleration, 0.0)
+    }
+
+    func testScrollMomentumIsClampedToAllowedRange() {
+        let store = SettingsStore(defaults: defaults)
+
+        store.saveScroll(ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                        acceleration: 0.5, momentum: 5.0, invertMouseScroll: false))
+        XCTAssertEqual(store.load().scroll.momentum, 1.0)
+
+        store.saveScroll(ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                        acceleration: 0.5, momentum: -1.0, invertMouseScroll: false))
+        XCTAssertEqual(store.load().scroll.momentum, 0.0)
+    }
+
+    func testLoadDefaultsForMissingAccelerationAndMomentum() {
+        let store = SettingsStore(defaults: defaults)
+
+        defaults.set(true, forKey: "settings.scroll.enabled")
+        defaults.set("regular", forKey: "settings.scroll.smoothness")
+        defaults.set(1.5, forKey: "settings.scroll.speed")
+
+        let loaded = store.load()
+        XCTAssertEqual(loaded.scroll.acceleration, 0.5, "Missing acceleration should default to 0.5")
+        XCTAssertEqual(loaded.scroll.momentum, 0.5, "Missing momentum should default to 0.5")
+    }
+
+    func testV2JSONImportBackwardsCompatibility() throws {
+        // v2 JSON without acceleration/momentum fields
+        let json = """
+        {
+            "schemaVersion": 2,
+            "exportDate": "2026-02-18T00:00:00Z",
+            "general": { "enabled": true, "showInMenuBar": true },
+            "remap": { "enabled": false, "button4Preset": "back", "button5Preset": "forward" },
+            "scroll": { "enabled": true, "smoothness": "high", "speed": 1.5, "invertMouseScroll": false },
+            "profiles": []
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(SettingsExport.self, from: json)
+        XCTAssertEqual(decoded.scroll.acceleration, 0.5, "v2 import should default acceleration to 0.5")
+        XCTAssertEqual(decoded.scroll.momentum, 0.5, "v2 import should default momentum to 0.5")
     }
 }

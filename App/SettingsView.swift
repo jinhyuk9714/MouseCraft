@@ -363,6 +363,14 @@ private struct ScrollingSettingsView: View {
         Binding(get: { localSettings.speed }, set: { localSettings.speed = min(max($0, 0.5), 3.0) })
     }
 
+    private var accelerationBinding: Binding<Double> {
+        Binding(get: { localSettings.acceleration }, set: { localSettings.acceleration = min(max($0, 0.0), 1.0) })
+    }
+
+    private var momentumBinding: Binding<Double> {
+        Binding(get: { localSettings.momentum }, set: { localSettings.momentum = min(max($0, 0.0), 1.0) })
+    }
+
     private var invertBinding: Binding<Bool> {
         Binding(get: { localSettings.invertMouseScroll }, set: { localSettings.invertMouseScroll = $0 })
     }
@@ -394,6 +402,48 @@ private struct ScrollingSettingsView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .disabled(!localSettings.enabled)
+                }
+
+                SectionHeader(title: "Physics", systemImage: "function")
+
+                SectionBox {
+                    VStack(alignment: .leading, spacing: MCStyle.itemSpacing) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Acceleration")
+                                Spacer()
+                                Text(localSettings.acceleration < 0.01 ? "Linear" : String(format: "%.0f%%", localSettings.acceleration * 100))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                                    .font(.callout)
+                            }
+                            Slider(value: accelerationBinding, in: 0.0...1.0, step: 0.05)
+                                .disabled(!localSettings.enabled || localSettings.smoothness == .off)
+                                .tint(MCStyle.accent)
+                            Text("Low = linear speed. High = slow scrolls stay precise, fast flicks go farther.")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Momentum")
+                                Spacer()
+                                Text(localSettings.momentum < 0.01 ? "Minimal" : localSettings.momentum > 0.99 ? "Maximum" : String(format: "%.0f%%", localSettings.momentum * 100))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                                    .font(.callout)
+                            }
+                            Slider(value: momentumBinding, in: 0.0...1.0, step: 0.05)
+                                .disabled(!localSettings.enabled || localSettings.smoothness == .off)
+                                .tint(MCStyle.accent)
+                            Text("How far the scroll coasts after you release. Higher = longer glide.")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
                 }
 
                 SectionHeader(title: "Speed & Direction", systemImage: "speedometer")
@@ -696,6 +746,28 @@ private struct AppProfileDetailView: View {
 
                     Divider()
 
+                    OverrideSliderRow(
+                        label: "Acceleration",
+                        globalValue: appState.scrollSettings.acceleration,
+                        override: $profile.scroll.transform(
+                            get: { $0?.acceleration },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.acceleration = newVal }
+                        )
+                    )
+
+                    Divider()
+
+                    OverrideSliderRow(
+                        label: "Momentum",
+                        globalValue: appState.scrollSettings.momentum,
+                        override: $profile.scroll.transform(
+                            get: { $0?.momentum },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.momentum = newVal }
+                        )
+                    )
+
+                    Divider()
+
                     OverrideToggleRow(
                         label: "Invert scroll direction",
                         globalValue: appState.scrollSettings.invertMouseScroll,
@@ -810,6 +882,35 @@ private struct OverrideSpeedRow: View {
                 }
             } label: {
                 Text(override == nil ? "Global" : String(format: "%.1fx", override!))
+                    .frame(width: 70)
+            }
+            .controlSize(.small)
+        }
+    }
+}
+
+private struct OverrideSliderRow: View {
+    let label: String
+    let globalValue: Double
+    @Binding var override: Double?
+
+    var body: some View {
+        HStack {
+            Text(label)
+            Spacer()
+            if override == nil {
+                Text("Global: \(String(format: "%.0f%%", globalValue * 100))")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            Menu {
+                Button("Use Global") { override = nil }
+                Divider()
+                ForEach([0.0, 0.25, 0.5, 0.75, 1.0], id: \.self) { val in
+                    Button(String(format: "%.0f%%", val * 100)) { override = val }
+                }
+            } label: {
+                Text(override == nil ? "Global" : String(format: "%.0f%%", override! * 100))
                     .frame(width: 70)
             }
             .controlSize(.small)

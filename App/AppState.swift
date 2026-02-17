@@ -199,6 +199,8 @@ final class AppState: ObservableObject {
             enabled: imported.scroll.enabled,
             smoothness: imported.scroll.smoothness,
             speed: imported.scroll.speed.clamped(to: 0.5...3.0),
+            acceleration: imported.scroll.acceleration.clamped(to: 0.0...1.0),
+            momentum: imported.scroll.momentum.clamped(to: 0.0...1.0),
             invertMouseScroll: imported.scroll.invertMouseScroll
         )
         profiles = imported.profiles
