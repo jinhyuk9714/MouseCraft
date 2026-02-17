@@ -1,5 +1,6 @@
 import SwiftUI
 import ServiceManagement
+import UniformTypeIdentifiers
 
 // MARK: - Navigation Model
 
@@ -76,6 +77,8 @@ struct SettingsView: View {
 private struct GeneralSettingsView: View {
     @ObservedObject var appState: AppState
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var importMessage: String?
+    @State private var importSuccess = false
 
     var body: some View {
         ScrollView {
@@ -147,9 +150,84 @@ private struct GeneralSettingsView: View {
                     }
                 }
 
+                SectionHeader(title: "Backup & Restore", systemImage: "square.and.arrow.up.on.square")
+
+                SectionBox {
+                    VStack(alignment: .leading, spacing: MCStyle.itemSpacing) {
+                        HStack {
+                            Label("Export all settings and app profiles to a JSON file.", systemImage: "square.and.arrow.up")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Export...") {
+                                exportSettings()
+                            }
+                            .controlSize(.small)
+                        }
+
+                        Divider()
+
+                        HStack {
+                            Label("Import settings from a JSON file.", systemImage: "square.and.arrow.down")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Import...") {
+                                importSettings()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                }
+
+                if let importMessage {
+                    Text(importMessage)
+                        .font(.caption)
+                        .foregroundStyle(importSuccess ? .green : .orange)
+                }
+
                 Spacer()
             }
             .padding(24)
+        }
+    }
+
+    private func exportSettings() {
+        guard let data = appState.exportSettings() else { return }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "MouseCraft-Settings.json"
+        panel.title = "Export MouseCraft Settings"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            try data.write(to: url)
+            importMessage = "Settings exported successfully."
+            importSuccess = true
+        } catch {
+            importMessage = "Export failed: \(error.localizedDescription)"
+            importSuccess = false
+        }
+    }
+
+    private func importSettings() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.title = "Import MouseCraft Settings"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let data = try Data(contentsOf: url)
+            try appState.importSettings(from: data)
+            importMessage = "Settings imported successfully."
+            importSuccess = true
+        } catch {
+            importMessage = "Import failed: \(error.localizedDescription)"
+            importSuccess = false
         }
     }
 }

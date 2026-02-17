@@ -16,7 +16,7 @@ struct AppSettings: Equatable {
     )
 }
 
-struct GeneralSettings: Equatable {
+struct GeneralSettings: Equatable, Codable {
     var enabled: Bool
     var showInMenuBar: Bool
 
@@ -48,7 +48,7 @@ enum RemapActionPreset: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-struct RemapSettings: Equatable {
+struct RemapSettings: Equatable, Codable {
     var enabled: Bool
     var button4Preset: RemapActionPreset
     var button5Preset: RemapActionPreset
@@ -75,7 +75,7 @@ enum ScrollSmoothness: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-struct ScrollSettings: Equatable {
+struct ScrollSettings: Equatable, Codable {
     var enabled: Bool
     var smoothness: ScrollSmoothness
     var speed: Double
@@ -105,6 +105,17 @@ struct ScrollOverride: Codable, Equatable {
     var smoothness: ScrollSmoothness?
     var speed: Double?
     var invertMouseScroll: Bool?
+}
+
+// MARK: - Settings Export/Import
+
+struct SettingsExport: Codable {
+    var schemaVersion: Int
+    var exportDate: String
+    var general: GeneralSettings
+    var remap: RemapSettings
+    var scroll: ScrollSettings
+    var profiles: [AppProfile]
 }
 
 // MARK: - Resolution (merge global + per-app override)

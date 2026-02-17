@@ -171,6 +171,48 @@ final class AppState: ObservableObject {
         persistProfiles()
     }
 
+    // MARK: - Settings Export/Import
+
+    func exportSettings() -> Data? {
+        let export = SettingsExport(
+            schemaVersion: AppSettings.schemaVersion,
+            exportDate: ISO8601DateFormatter().string(from: Date()),
+            general: GeneralSettings(enabled: enabled, showInMenuBar: showInMenuBar),
+            remap: remapSettings,
+            scroll: scrollSettings,
+            profiles: profiles
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try? encoder.encode(export)
+    }
+
+    func importSettings(from data: Data) throws {
+        let decoder = JSONDecoder()
+        let imported = try decoder.decode(SettingsExport.self, from: data)
+
+        isBootstrapping = true
+        enabled = imported.general.enabled
+        showInMenuBar = imported.general.showInMenuBar
+        remapSettings = imported.remap
+        scrollSettings = ScrollSettings(
+            enabled: imported.scroll.enabled,
+            smoothness: imported.scroll.smoothness,
+            speed: imported.scroll.speed.clamped(to: 0.5...3.0),
+            invertMouseScroll: imported.scroll.invertMouseScroll
+        )
+        profiles = imported.profiles
+        isBootstrapping = false
+
+        settingsStore.saveGeneral(GeneralSettings(enabled: enabled, showInMenuBar: showInMenuBar))
+        settingsStore.saveRemap(remapSettings)
+        settingsStore.saveScroll(scrollSettings)
+        settingsStore.saveProfiles(profiles)
+        syncRuntimeSettings()
+        scrollEngine.reset()
+        schedulePipelineReconfigure()
+    }
+
     private func persistProfiles() {
         settingsStore.saveProfiles(profiles)
         syncRuntimeSettings()
