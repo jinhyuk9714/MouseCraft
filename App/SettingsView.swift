@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 
 struct SettingsView: View {
     @ObservedObject var appState: AppState
@@ -18,16 +19,33 @@ struct SettingsView: View {
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
         .padding(16)
-        .frame(width: 560, height: 420)
+        .frame(width: 560, height: 440)
     }
 }
 
 private struct GeneralSettingsView: View {
     @ObservedObject var appState: AppState
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle("Enable MouseCraft", isOn: $appState.enabled)
+
+            Toggle("Launch at Login", isOn: $launchAtLogin)
+                .onChange(of: launchAtLogin) { newValue in
+                    do {
+                        if newValue {
+                            try SMAppService.mainApp.register()
+                        } else {
+                            try SMAppService.mainApp.unregister()
+                        }
+                    } catch {
+                        #if DEBUG
+                        print("[MouseCraft] Launch at Login error: \(error)")
+                        #endif
+                        launchAtLogin = SMAppService.mainApp.status == .enabled
+                    }
+                }
 
             Divider()
 
@@ -36,18 +54,19 @@ private struct GeneralSettingsView: View {
 
             HStack {
                 Label(
-                    appState.accessibilityTrusted ? "Accessibility granted" : "Accessibility not granted",
+                    appState.accessibilityTrusted ? "Accessibility: Granted" : "Accessibility: Not Granted",
                     systemImage: appState.accessibilityTrusted ? "checkmark.seal" : "exclamationmark.triangle"
                 )
                 Spacer()
-                Button("Request") {
-                    appState.requestAccessibility()
-                }
-                Button("Open Settings") {
-                    appState.openAccessibilitySettings()
+                if !appState.accessibilityTrusted {
+                    Button("Request Accessibility…") {
+                        appState.requestAccessibility()
+                    }
+                    Button("Open System Settings…") {
+                        appState.openAccessibilitySettings()
+                    }
                 }
             }
-
 
             if let statusMessage = appState.statusMessage {
                 Text(statusMessage)
@@ -128,7 +147,7 @@ private struct RemapSettingsView: View {
             }
             .formStyle(.grouped)
 
-            Text("MVP supports fixed slots for side buttons: raw buttonNumber 3 -> Button 4, 4 -> Button 5.")
+            Text("Button 4, 5는 대부분 마우스의 사이드 버튼입니다.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -218,7 +237,7 @@ private struct ScrollingSettingsView: View {
                 HStack {
                     Text("Speed")
                     Spacer()
-                    Text(String(format: "%.2fx", localSettings.speed))
+                    Text(String(format: "%.1fx", localSettings.speed))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
@@ -229,7 +248,7 @@ private struct ScrollingSettingsView: View {
             Toggle("Invert mouse scroll", isOn: invertBinding)
                 .disabled(!localSettings.enabled)
 
-            Text("Vertical wheel deltas are transformed with EMA + momentum in Regular/High modes.")
+            Text("Regular/High 모드에서 부드러운 스크롤과 관성이 적용됩니다.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -248,21 +267,24 @@ private struct ScrollingSettingsView: View {
 }
 
 private struct AboutView: View {
+    private var version: String {
+        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "Version \(short) (\(build))"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("MouseCraft")
                 .font(.title2)
-            Text("Privacy-first mouse enhancer for macOS.")
+                .bold()
+            Text(version)
                 .foregroundStyle(.secondary)
 
             Divider()
 
-            Text("MouseCraft runs locally and does not send telemetry by default.")
-                .font(.caption)
-            Text("Raw input events are not stored.")
-                .font(.caption)
-            Text("Keyboard monitoring is not enabled in v0.1.")
-                .font(.caption)
+            Text("MouseCraft는 완전히 로컬에서 동작하며, 텔레메트리를 전송하지 않습니다. 입력 이벤트는 저장되지 않으며, 키보드 이벤트는 모니터링하지 않습니다.")
+                .font(.callout)
 
             Spacer()
         }
