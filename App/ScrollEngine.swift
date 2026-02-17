@@ -10,16 +10,40 @@ final class ScrollEngine {
     private var currentY: Double = 0
     private var subPixelRemainder: Double = 0
 
+    // MARK: - Momentum state (protected by stateLock)
+
+    private var velocity: Double = 0
+    private var lastInputTime: UInt64 = 0
+    private var inMomentumPhase: Bool = false
+    private var lastFrameTime: UInt64 = 0
+    private var cachedSmoothness: ScrollSmoothness = .regular
+
+    // MARK: - Settings snapshot (written from event tap, read from display link)
+
+    private var lerpFactor: Double = 0.18
+
     // MARK: - Display link
 
     private var displayLink: CVDisplayLink?
     private let displayLinkQueue = DispatchQueue(label: "mousecraft.scroll.displaylink", qos: .userInteractive)
 
-    // MARK: - Settings snapshot (written from event tap, read from display link)
+    // MARK: - Momentum constants
 
-    private var lerpFactor: Double = 0.18
-    private var speedMultiplier: Double = 1.0
-    private var invertScroll: Bool = false
+    private static let momentumIdleThreshold: Double = 0.08
+    private static let momentumStopThreshold: Double = 5.0
+
+    // MARK: - Time conversion
+
+    private static let machTimebaseInfo: mach_timebase_info_data_t = {
+        var info = mach_timebase_info_data_t()
+        mach_timebase_info(&info)
+        return info
+    }()
+
+    private static func machTimeToSeconds(_ time: UInt64) -> Double {
+        let nanos = Double(time) * Double(machTimebaseInfo.numer) / Double(machTimebaseInfo.denom)
+        return nanos / 1_000_000_000.0
+    }
 
     deinit {
         stopDisplayLink()
@@ -32,6 +56,10 @@ final class ScrollEngine {
         targetY = 0
         currentY = 0
         subPixelRemainder = 0
+        velocity = 0
+        lastInputTime = 0
+        inMomentumPhase = false
+        lastFrameTime = 0
         stateLock.unlock()
         stopDisplayLink()
     }
@@ -58,10 +86,26 @@ final class ScrollEngine {
         if directionChanged {
             targetY = currentY
             subPixelRemainder = 0
+            velocity = 0
+            inMomentumPhase = false
         }
 
         targetY += pixelDelta
         lerpFactor = lerpFactor(for: settings.smoothness)
+        cachedSmoothness = settings.smoothness
+
+        // Velocity tracking via EMA for momentum
+        let now = mach_absolute_time()
+        if lastInputTime != 0 {
+            let dtInput = Self.machTimeToSeconds(now - lastInputTime)
+            if dtInput > 0 && dtInput < 0.5 {
+                let instantVelocity = pixelDelta / dtInput
+                velocity = velocity * 0.7 + instantVelocity * 0.3
+            }
+        }
+        lastInputTime = now
+        inMomentumPhase = false
+
         stateLock.unlock()
 
         ensureDisplayLinkRunning()
@@ -80,12 +124,21 @@ final class ScrollEngine {
         }
     }
 
-    /// Lerp factor per frame. Lower = smoother but more latency.
+    /// Lerp factor per frame (at 60 Hz baseline). Lower = smoother but more latency.
     func lerpFactor(for smoothness: ScrollSmoothness) -> Double {
         switch smoothness {
         case .off: return 1.0
         case .regular: return 0.22
         case .high: return 0.12
+        }
+    }
+
+    /// Friction coefficient for momentum decay. Higher = more friction = shorter coast.
+    func frictionCoefficient(for smoothness: ScrollSmoothness) -> Double {
+        switch smoothness {
+        case .off: return 0
+        case .regular: return 6.0
+        case .high: return 3.5
         }
     }
 
@@ -144,8 +197,40 @@ final class ScrollEngine {
     private func displayLinkFired() {
         stateLock.lock()
 
+        // Compute deltaTime
+        let nowMach = mach_absolute_time()
+        var dt: Double = 1.0 / 60.0
+        if lastFrameTime != 0 {
+            dt = Self.machTimeToSeconds(nowMach - lastFrameTime)
+            dt = min(dt, 0.05)
+        }
+        lastFrameTime = nowMach
+
+        // Check for momentum phase entry
+        if !inMomentumPhase && lastInputTime != 0 && cachedSmoothness != .off {
+            let timeSinceLastInput = Self.machTimeToSeconds(nowMach - lastInputTime)
+            if timeSinceLastInput > Self.momentumIdleThreshold && abs(velocity) > Self.momentumStopThreshold {
+                inMomentumPhase = true
+            }
+        }
+
+        // Advance targetY if in momentum phase
+        if inMomentumPhase {
+            let friction = frictionCoefficient(for: cachedSmoothness)
+            velocity *= exp(-friction * dt)
+
+            if abs(velocity) < Self.momentumStopThreshold {
+                velocity = 0
+                inMomentumPhase = false
+            } else {
+                targetY += velocity * dt
+            }
+        }
+
+        // Frame-rate independent lerp: at 60fps dt*60=1.0 so factor==lerpFactor
         let remaining = targetY - currentY
-        let step = remaining * lerpFactor
+        let factor = 1.0 - pow(1.0 - lerpFactor, dt * 60.0)
+        let step = remaining * factor
 
         currentY += step
 
@@ -156,10 +241,12 @@ final class ScrollEngine {
             subPixelRemainder -= Double(intDelta)
         }
 
-        let shouldStop = abs(remaining) < 0.1
+        // Stop only when momentum is done AND lerp has converged
+        let shouldStop = !inMomentumPhase && abs(remaining) < 0.1
         if shouldStop {
             currentY = targetY
             subPixelRemainder = 0
+            lastFrameTime = 0
         }
 
         stateLock.unlock()
@@ -214,6 +301,22 @@ final class ScrollEngine {
         event.setIntegerValueField(.eventSourceUserData, value: EventConstants.syntheticEventMarker)
         event.post(tap: .cghidEventTap)
     }
+
+    // MARK: - Test-only inspection
+
+    #if DEBUG
+    var _testVelocity: Double {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return velocity
+    }
+
+    var _testInMomentumPhase: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return inMomentumPhase
+    }
+    #endif
 }
 
 private extension Double {
