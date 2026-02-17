@@ -7,6 +7,13 @@ struct KeyboardShortcut: Equatable {
 }
 
 final class ButtonRemapEngine {
+    private enum KeyCodes {
+        static let leftBracket: CGKeyCode = 33   // [ — Cmd+[ = Back
+        static let rightBracket: CGKeyCode = 30  // ] — Cmd+] = Forward
+        static let c: CGKeyCode = 8              // C — Cmd+C = Copy
+        static let v: CGKeyCode = 9              // V — Cmd+V = Paste
+    }
+
     private let postQueue = DispatchQueue(label: "mousecraft.remap.synthetic", qos: .userInteractive)
 
     func shouldHandle(_ sample: MouseEventSample, settings: RemapSettings) -> Bool {
@@ -42,13 +49,13 @@ final class ButtonRemapEngine {
         case .none:
             return nil
         case .back:
-            return KeyboardShortcut(keyCode: 33, modifiers: .maskCommand)
+            return KeyboardShortcut(keyCode: KeyCodes.leftBracket, modifiers: .maskCommand)
         case .forward:
-            return KeyboardShortcut(keyCode: 30, modifiers: .maskCommand)
+            return KeyboardShortcut(keyCode: KeyCodes.rightBracket, modifiers: .maskCommand)
         case .copy:
-            return KeyboardShortcut(keyCode: 8, modifiers: .maskCommand)
+            return KeyboardShortcut(keyCode: KeyCodes.c, modifiers: .maskCommand)
         case .paste:
-            return KeyboardShortcut(keyCode: 9, modifiers: .maskCommand)
+            return KeyboardShortcut(keyCode: KeyCodes.v, modifiers: .maskCommand)
         }
     }
 

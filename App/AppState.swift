@@ -1,6 +1,29 @@
 import Foundation
 import Combine
 
+/// Determines whether the event tap must run in active-filter mode
+/// (i.e. it needs to suppress/transform events) vs listen-only.
+func needsActiveFilter(remap: RemapSettings, scroll: ScrollSettings) -> Bool {
+    if remap.enabled {
+        return true
+    }
+
+    guard scroll.enabled else {
+        return false
+    }
+
+    if scroll.smoothness != .off {
+        return true
+    }
+
+    let normalizedSpeed = scroll.speed.clamped(to: 0.5...3.0)
+    if normalizedSpeed != 1.0 {
+        return true
+    }
+
+    return scroll.invertMouseScroll
+}
+
 #if DEBUG
 struct DebugEventCounts {
     var otherMouseDown: Int = 0
@@ -78,6 +101,11 @@ final class AppState: ObservableObject {
     private var isBootstrapping = true
     private var isInternalDisable = false
     private var isReconfigureScheduled = false
+    private var permissionTimer: Timer?
+
+    deinit {
+        permissionTimer?.invalidate()
+    }
 
     init() {
         let settings = settingsStore.load()
@@ -92,6 +120,20 @@ final class AppState: ObservableObject {
         isBootstrapping = false
         refreshPermissions()
         reconfigurePipeline()
+        startPermissionTimer()
+    }
+
+    private func startPermissionTimer() {
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let current = self.permissionManager.isAccessibilityTrusted(prompt: false)
+            if current != self.accessibilityTrusted {
+                self.accessibilityTrusted = current
+                if current && self.enabled {
+                    self.reconfigurePipeline()
+                }
+            }
+        }
     }
 
     func refreshPermissions() {
@@ -139,29 +181,8 @@ final class AppState: ObservableObject {
         return snapshot
     }
 
-    private func needsActiveFilter() -> Bool {
-        needsActiveFilter(remap: remapSettings, scroll: scrollSettings)
-    }
-
-    private func needsActiveFilter(remap: RemapSettings, scroll: ScrollSettings) -> Bool {
-        if remap.enabled {
-            return true
-        }
-
-        guard scroll.enabled else {
-            return false
-        }
-
-        if scroll.smoothness != .off {
-            return true
-        }
-
-        let normalizedSpeed = min(max(scroll.speed, 0.5), 3.0)
-        if normalizedSpeed != 1.0 {
-            return true
-        }
-
-        return scroll.invertMouseScroll
+    private func currentNeedsActiveFilter() -> Bool {
+        MouseCraft.needsActiveFilter(remap: remapSettings, scroll: scrollSettings)
     }
 
     private func reconfigurePipeline() {
@@ -182,7 +203,7 @@ final class AppState: ObservableObject {
         }
 
         syncRuntimeSettings()
-        let mode: EventTapManager.Mode = needsActiveFilter() ? .activeFilter : .listenOnly
+        let mode: EventTapManager.Mode = currentNeedsActiveFilter() ? .activeFilter : .listenOnly
         let started = eventTap.start(mode: mode) { [weak self] sample in
             self?.handleEvent(sample) ?? .passThrough
         }

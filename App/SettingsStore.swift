@@ -50,14 +50,14 @@ final class SettingsStore {
     func saveGeneral(_ general: GeneralSettings) {
         defaults.set(general.enabled, forKey: Key.enabled)
         defaults.set(general.showInMenuBar, forKey: Key.showInMenuBar)
-        defaults.set(AppSettings.schemaVersion, forKey: Key.schemaVersion)
+        stampVersion()
     }
 
     func saveRemap(_ remap: RemapSettings) {
         defaults.set(remap.enabled, forKey: Key.remapEnabled)
         defaults.set(remap.button4Preset.rawValue, forKey: Key.remapButton4Preset)
         defaults.set(remap.button5Preset.rawValue, forKey: Key.remapButton5Preset)
-        defaults.set(AppSettings.schemaVersion, forKey: Key.schemaVersion)
+        stampVersion()
     }
 
     func saveScroll(_ scroll: ScrollSettings) {
@@ -65,6 +65,10 @@ final class SettingsStore {
         defaults.set(scroll.smoothness.rawValue, forKey: Key.scrollSmoothness)
         defaults.set(scroll.speed.clamped(to: 0.5...3.0), forKey: Key.scrollSpeed)
         defaults.set(scroll.invertMouseScroll, forKey: Key.scrollInvert)
+        stampVersion()
+    }
+
+    private func stampVersion() {
         defaults.set(AppSettings.schemaVersion, forKey: Key.schemaVersion)
     }
 
@@ -84,11 +88,5 @@ final class SettingsStore {
             return fallback
         }
         return parsed
-    }
-}
-
-private extension Double {
-    func clamped(to range: ClosedRange<Double>) -> Double {
-        min(max(self, range.lowerBound), range.upperBound)
     }
 }
