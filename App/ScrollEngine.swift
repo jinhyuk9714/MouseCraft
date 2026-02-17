@@ -17,6 +17,7 @@ final class ScrollEngine {
     private var inMomentumPhase: Bool = false
     private var lastFrameTime: UInt64 = 0
     private var cachedSmoothness: ScrollSmoothness = .regular
+    private var cachedMomentum: Double = 0.5
 
     // MARK: - Settings snapshot (written from event tap, read from display link)
 
@@ -32,6 +33,14 @@ final class ScrollEngine {
     private static let momentumIdleThreshold: Double = 0.08
     private static let momentumStopThreshold: Double = 5.0
     private static let maxVelocity: Double = 3000.0
+
+    // MARK: - Acceleration curve constants
+
+    private static let accelReferenceVelocity: Double = 600.0
+    private static let accelExponent: Double = 1.5
+    private static let accelMaxGain: Double = 2.5
+    private static let frictionMin: Double = 1.5
+    private static let frictionMax: Double = 12.0
 
     // MARK: - Time conversion
 
@@ -61,6 +70,7 @@ final class ScrollEngine {
         lastInputTime = 0
         inMomentumPhase = false
         lastFrameTime = 0
+        cachedMomentum = 0.5
         stateLock.unlock()
         stopDisplayLink()
     }
@@ -78,9 +88,12 @@ final class ScrollEngine {
 
         let normalizedSpeed = settings.speed.clamped(to: 0.5...3.0)
         let direction: Double = settings.invertMouseScroll ? -1.0 : 1.0
-        let pixelDelta = Double(sample.deltaY) * normalizedSpeed * direction * pixelMultiplier(for: settings.smoothness)
+        let baseDelta = Double(sample.deltaY) * normalizedSpeed * direction * pixelMultiplier(for: settings.smoothness)
 
         stateLock.lock()
+
+        // Apply non-linear acceleration using current velocity magnitude
+        let pixelDelta = acceleratedDelta(baseDelta, velocity: velocity, strength: settings.acceleration)
 
         // Reset on direction reversal for instant response
         let directionChanged = (pixelDelta > 0 && targetY < currentY) || (pixelDelta < 0 && targetY > currentY)
@@ -94,6 +107,7 @@ final class ScrollEngine {
         targetY += pixelDelta
         lerpFactor = lerpFactor(for: settings.smoothness)
         cachedSmoothness = settings.smoothness
+        cachedMomentum = settings.momentum
 
         // Velocity tracking via EMA for momentum
         let now = mach_absolute_time()
@@ -142,6 +156,26 @@ final class ScrollEngine {
         case .regular: return 6.0
         case .high: return 3.5
         }
+    }
+
+    /// Non-linear acceleration: slow scrolls stay precise, fast flicks go farther.
+    /// Uses previous velocity EMA to avoid feedback loops.
+    private func acceleratedDelta(_ rawDelta: Double, velocity: Double, strength: Double) -> Double {
+        guard strength > 0.001 else { return rawDelta }
+        let normalizedVelocity = abs(velocity) / Self.accelReferenceVelocity
+        let curveGain = min(pow(normalizedVelocity, Self.accelExponent), Self.accelMaxGain)
+        return rawDelta * (1.0 + strength * curveGain)
+    }
+
+    /// Maps user momentum setting (0–1) to friction coefficient via log interpolation.
+    /// momentum=0 → high friction (short coast), momentum=1 → low friction (long coast).
+    func effectiveFriction(smoothness: ScrollSmoothness, momentum: Double) -> Double {
+        guard smoothness != .off else { return 0 }
+        let clamped = momentum.clamped(to: 0.0...1.0)
+        let logMin = log(Self.frictionMin)
+        let logMax = log(Self.frictionMax)
+        let logFriction = logMax - clamped * (logMax - logMin)
+        return exp(logFriction)
     }
 
     // MARK: - Pass-through mode (speed/invert only, no smoothing)
@@ -218,7 +252,7 @@ final class ScrollEngine {
 
         // Advance targetY if in momentum phase
         if inMomentumPhase {
-            let friction = frictionCoefficient(for: cachedSmoothness)
+            let friction = effectiveFriction(smoothness: cachedSmoothness, momentum: cachedMomentum)
             velocity *= exp(-friction * dt)
 
             if abs(velocity) < Self.momentumStopThreshold {

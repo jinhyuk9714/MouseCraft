@@ -1,7 +1,7 @@
 import Foundation
 
 struct AppSettings: Equatable {
-    static let schemaVersion = 2
+    static let schemaVersion = 3
 
     var schemaVersion: Int
     var general: GeneralSettings
@@ -79,9 +79,38 @@ struct ScrollSettings: Equatable, Codable {
     var enabled: Bool
     var smoothness: ScrollSmoothness
     var speed: Double
+    var acceleration: Double
+    var momentum: Double
     var invertMouseScroll: Bool
 
-    static let `default` = ScrollSettings(enabled: false, smoothness: .regular, speed: 1.0, invertMouseScroll: false)
+    static let `default` = ScrollSettings(
+        enabled: false, smoothness: .regular, speed: 1.0,
+        acceleration: 0.5, momentum: 0.5, invertMouseScroll: false
+    )
+
+    enum CodingKeys: String, CodingKey {
+        case enabled, smoothness, speed, acceleration, momentum, invertMouseScroll
+    }
+
+    init(enabled: Bool, smoothness: ScrollSmoothness, speed: Double,
+         acceleration: Double = 0.5, momentum: Double = 0.5, invertMouseScroll: Bool) {
+        self.enabled = enabled
+        self.smoothness = smoothness
+        self.speed = speed
+        self.acceleration = acceleration
+        self.momentum = momentum
+        self.invertMouseScroll = invertMouseScroll
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decode(Bool.self, forKey: .enabled)
+        smoothness = try container.decode(ScrollSmoothness.self, forKey: .smoothness)
+        speed = try container.decode(Double.self, forKey: .speed)
+        acceleration = try container.decodeIfPresent(Double.self, forKey: .acceleration) ?? 0.5
+        momentum = try container.decodeIfPresent(Double.self, forKey: .momentum) ?? 0.5
+        invertMouseScroll = try container.decode(Bool.self, forKey: .invertMouseScroll)
+    }
 }
 
 // MARK: - Per-App Profiles
@@ -104,7 +133,33 @@ struct ScrollOverride: Codable, Equatable {
     var enabled: Bool?
     var smoothness: ScrollSmoothness?
     var speed: Double?
+    var acceleration: Double?
+    var momentum: Double?
     var invertMouseScroll: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case enabled, smoothness, speed, acceleration, momentum, invertMouseScroll
+    }
+
+    init(enabled: Bool? = nil, smoothness: ScrollSmoothness? = nil, speed: Double? = nil,
+         acceleration: Double? = nil, momentum: Double? = nil, invertMouseScroll: Bool? = nil) {
+        self.enabled = enabled
+        self.smoothness = smoothness
+        self.speed = speed
+        self.acceleration = acceleration
+        self.momentum = momentum
+        self.invertMouseScroll = invertMouseScroll
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        smoothness = try container.decodeIfPresent(ScrollSmoothness.self, forKey: .smoothness)
+        speed = try container.decodeIfPresent(Double.self, forKey: .speed)
+        acceleration = try container.decodeIfPresent(Double.self, forKey: .acceleration)
+        momentum = try container.decodeIfPresent(Double.self, forKey: .momentum)
+        invertMouseScroll = try container.decodeIfPresent(Bool.self, forKey: .invertMouseScroll)
+    }
 }
 
 // MARK: - Settings Export/Import
@@ -135,6 +190,8 @@ func resolvedScroll(global: ScrollSettings, override: ScrollOverride?) -> Scroll
         enabled: o.enabled ?? global.enabled,
         smoothness: o.smoothness ?? global.smoothness,
         speed: (o.speed ?? global.speed).clamped(to: 0.5...3.0),
+        acceleration: (o.acceleration ?? global.acceleration).clamped(to: 0.0...1.0),
+        momentum: (o.momentum ?? global.momentum).clamped(to: 0.0...1.0),
         invertMouseScroll: o.invertMouseScroll ?? global.invertMouseScroll
     )
 }

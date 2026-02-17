@@ -161,6 +161,49 @@ final class ScrollEngineTests: XCTestCase {
                        "Momentum phase should be inactive after direction reversal")
     }
 
+    // MARK: - Effective friction tests
+
+    func testEffectiveFrictionMomentumZeroIsHighFriction() {
+        let engine = ScrollEngine()
+        XCTAssertEqual(engine.effectiveFriction(smoothness: .regular, momentum: 0.0), 12.0, accuracy: 0.01)
+    }
+
+    func testEffectiveFrictionMomentumOneIsLowFriction() {
+        let engine = ScrollEngine()
+        XCTAssertEqual(engine.effectiveFriction(smoothness: .regular, momentum: 1.0), 1.5, accuracy: 0.01)
+    }
+
+    func testEffectiveFrictionOffModeIsZero() {
+        let engine = ScrollEngine()
+        XCTAssertEqual(engine.effectiveFriction(smoothness: .off, momentum: 0.5), 0)
+    }
+
+    func testHigherMomentumMeansLowerFriction() {
+        let engine = ScrollEngine()
+        let low = engine.effectiveFriction(smoothness: .regular, momentum: 0.2)
+        let high = engine.effectiveFriction(smoothness: .regular, momentum: 0.8)
+        XCTAssertGreaterThan(low, high,
+            "Lower momentum setting should produce higher friction (shorter coast)")
+    }
+
+    // MARK: - Acceleration tests
+
+    func testAccelerationZeroStrengthHandlesEvent() {
+        let engine = ScrollEngine()
+        let settings = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                      acceleration: 0.0, invertMouseScroll: false)
+        let handled = engine.handle(makeSample(deltaY: 10), settings: settings)
+        XCTAssertTrue(handled)
+    }
+
+    func testAccelerationMaxStrengthHandlesEvent() {
+        let engine = ScrollEngine()
+        let settings = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                      acceleration: 1.0, invertMouseScroll: false)
+        let handled = engine.handle(makeSample(deltaY: 10), settings: settings)
+        XCTAssertTrue(handled)
+    }
+
     private func makeSample(deltaY: Int32) -> MouseEventSample {
         MouseEventSample(type: .scrollWheel, buttonNumber: nil, deltaY: deltaY, timestamp: 0, sourceUserData: 0)
     }

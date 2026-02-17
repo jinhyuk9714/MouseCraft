@@ -161,6 +161,24 @@ final class AppProfileTests: XCTestCase {
         XCTAssertTrue(needsActiveFilter(remap: profileRemap, scroll: globalScroll))
     }
 
+    func testResolvedScrollAccelerationAndMomentumOverride() {
+        let global = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                    acceleration: 0.5, momentum: 0.5, invertMouseScroll: false)
+        let override = ScrollOverride(acceleration: 0.9, momentum: 0.2)
+        let result = resolvedScroll(global: global, override: override)
+        XCTAssertEqual(result.acceleration, 0.9, accuracy: 0.001)
+        XCTAssertEqual(result.momentum, 0.2, accuracy: 0.001)
+    }
+
+    func testResolvedScrollNilAccelerationAndMomentumInheritsGlobal() {
+        let global = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                    acceleration: 0.7, momentum: 0.3, invertMouseScroll: false)
+        let override = ScrollOverride()
+        let result = resolvedScroll(global: global, override: override)
+        XCTAssertEqual(result.acceleration, 0.7, accuracy: 0.001)
+        XCTAssertEqual(result.momentum, 0.3, accuracy: 0.001)
+    }
+
     func testNeedsActiveFilterProfileScrollOverride() {
         let globalRemap = RemapSettings(enabled: false, button4Preset: .none, button5Preset: .none)
         let globalScroll = ScrollSettings(enabled: false, smoothness: .off, speed: 1.0, invertMouseScroll: false)
