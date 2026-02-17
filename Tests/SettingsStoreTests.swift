@@ -89,4 +89,77 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(loaded.remap, .default)
         XCTAssertEqual(loaded.scroll, .default)
     }
+
+    // MARK: - Settings Export/Import
+
+    func testSettingsExportCodableRoundTrip() throws {
+        let export = SettingsExport(
+            schemaVersion: AppSettings.schemaVersion,
+            exportDate: "2026-02-18T00:00:00Z",
+            general: GeneralSettings(enabled: true, showInMenuBar: false),
+            remap: RemapSettings(enabled: true, button4Preset: .copy, button5Preset: .paste),
+            scroll: ScrollSettings(enabled: true, smoothness: .high, speed: 2.0, invertMouseScroll: true),
+            profiles: [
+                AppProfile(id: UUID(), bundleIdentifier: "com.apple.Safari", displayName: "Safari",
+                           remap: RemapOverride(enabled: true, button4Preset: .back, button5Preset: nil),
+                           scroll: ScrollOverride(enabled: nil, smoothness: .regular, speed: 1.5, invertMouseScroll: nil))
+            ]
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(export)
+        let decoded = try JSONDecoder().decode(SettingsExport.self, from: data)
+
+        XCTAssertEqual(decoded.schemaVersion, export.schemaVersion)
+        XCTAssertEqual(decoded.exportDate, export.exportDate)
+        XCTAssertEqual(decoded.general, export.general)
+        XCTAssertEqual(decoded.remap, export.remap)
+        XCTAssertEqual(decoded.scroll, export.scroll)
+        XCTAssertEqual(decoded.profiles.count, 1)
+        XCTAssertEqual(decoded.profiles[0].bundleIdentifier, "com.apple.Safari")
+        XCTAssertEqual(decoded.profiles[0].remap?.button4Preset, .back)
+        XCTAssertEqual(decoded.profiles[0].scroll?.smoothness, .regular)
+    }
+
+    func testSettingsExportWithEmptyProfilesRoundTrip() throws {
+        let export = SettingsExport(
+            schemaVersion: AppSettings.schemaVersion,
+            exportDate: "2026-02-18T12:00:00Z",
+            general: .default,
+            remap: .default,
+            scroll: .default,
+            profiles: []
+        )
+
+        let data = try JSONEncoder().encode(export)
+        let decoded = try JSONDecoder().decode(SettingsExport.self, from: data)
+
+        XCTAssertEqual(decoded.general, .default)
+        XCTAssertEqual(decoded.remap, .default)
+        XCTAssertEqual(decoded.scroll, .default)
+        XCTAssertTrue(decoded.profiles.isEmpty)
+    }
+
+    func testImportSettingsSpeedIsClamped() throws {
+        let json = """
+        {
+            "schemaVersion": \(AppSettings.schemaVersion),
+            "exportDate": "2026-02-18T00:00:00Z",
+            "general": { "enabled": false, "showInMenuBar": true },
+            "remap": { "enabled": false, "button4Preset": "back", "button5Preset": "forward" },
+            "scroll": { "enabled": true, "smoothness": "regular", "speed": 99.0, "invertMouseScroll": false },
+            "profiles": []
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(SettingsExport.self, from: json)
+        let clamped = decoded.scroll.speed.clamped(to: 0.5...3.0)
+        XCTAssertEqual(clamped, 3.0)
+    }
+
+    func testImportInvalidJSONThrows() {
+        let badData = Data("{ not valid json }}}".utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(SettingsExport.self, from: badData))
+    }
 }
