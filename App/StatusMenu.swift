@@ -10,26 +10,30 @@ struct StatusMenu: View {
 
             Divider()
 
-            VStack(alignment: .leading, spacing: 6) {
-                Label(
-                    appState.accessibilityTrusted ? "Accessibility: Granted" : "Accessibility: Not granted",
-                    systemImage: appState.accessibilityTrusted ? "checkmark.seal" : "exclamationmark.triangle"
-                )
+            Toggle("Button Remap", isOn: $appState.remapSettings.enabled)
+                .disabled(!appState.enabled)
+            Toggle("Smooth Scroll", isOn: $appState.scrollSettings.enabled)
+                .disabled(!appState.enabled)
 
+            Divider()
+
+            Label(
+                appState.accessibilityTrusted ? "Accessibility: Granted" : "Accessibility: Not Granted",
+                systemImage: appState.accessibilityTrusted ? "checkmark.seal" : "exclamationmark.triangle"
+            )
+
+            if !appState.accessibilityTrusted {
                 HStack(spacing: 8) {
                     Button("Request Accessibility…") {
                         appState.requestAccessibility()
                     }
-                    Button("Open Accessibility Settings") {
+                    Button("Open System Settings…") {
                         appState.openAccessibilitySettings()
                     }
                 }
-
-
             }
 
             if let statusMessage = appState.statusMessage {
-                Divider()
                 Text(statusMessage)
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -48,7 +52,7 @@ struct StatusMenu: View {
 
             Divider()
 
-            Button("Open Settings") {
+            Button("Open Settings…") {
                 openWindow(id: "settings")
                 NSApp.activate(ignoringOtherApps: true)
             }

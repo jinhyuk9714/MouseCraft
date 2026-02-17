@@ -66,7 +66,7 @@ enum ScrollSmoothness: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .off:
-            return "Off"
+            return "None"
         case .regular:
             return "Regular"
         case .high:
