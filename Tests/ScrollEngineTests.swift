@@ -130,6 +130,19 @@ final class ScrollEngineTests: XCTestCase {
                        "Frame-rate independent lerp should equal raw lerpFactor at 60Hz")
     }
 
+    func testVelocityIsCappedAtMaximum() {
+        let engine = ScrollEngine()
+        let settings = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0, invertMouseScroll: false)
+
+        // Rapidly send many events to push velocity toward its limit
+        for _ in 0..<50 {
+            engine.handle(makeSample(deltaY: 10), settings: settings)
+        }
+
+        XCTAssertLessThanOrEqual(abs(engine._testVelocity), 3000.0,
+                                  "Velocity should be capped at 3000 px/s")
+    }
+
     func testDirectionReversalResetsMomentum() {
         let engine = ScrollEngine()
         let settings = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0, invertMouseScroll: false)

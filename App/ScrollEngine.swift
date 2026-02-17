@@ -31,6 +31,7 @@ final class ScrollEngine {
 
     private static let momentumIdleThreshold: Double = 0.08
     private static let momentumStopThreshold: Double = 5.0
+    private static let maxVelocity: Double = 3000.0
 
     // MARK: - Time conversion
 
@@ -100,7 +101,8 @@ final class ScrollEngine {
             let dtInput = Self.machTimeToSeconds(now - lastInputTime)
             if dtInput > 0 && dtInput < 0.5 {
                 let instantVelocity = pixelDelta / dtInput
-                velocity = velocity * 0.7 + instantVelocity * 0.3
+                let raw = velocity * 0.7 + instantVelocity * 0.3
+                velocity = raw.clamped(to: -Self.maxVelocity...Self.maxVelocity)
             }
         }
         lastInputTime = now
