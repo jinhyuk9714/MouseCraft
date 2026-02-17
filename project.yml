@@ -1,0 +1,28 @@
+name: MouseCraft
+options:
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: "com.yourname.MouseCraft"
+targets:
+  MouseCraft:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    settings:
+      base:
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_IDENTITY: "-"
+  MouseCraftTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: MouseCraft
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
