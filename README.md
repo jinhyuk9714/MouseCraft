@@ -10,6 +10,8 @@ A lightweight menu-bar utility that brings trackpad-like smooth scrolling, butto
 
 [Releases](https://github.com/jinhyuk9714/MouseCraft/releases) · [Issues](https://github.com/jinhyuk9714/MouseCraft/issues)
 
+English | [한국어](#한국어)
+
 </div>
 
 ---
@@ -91,5 +93,107 @@ That's it. No network access, no file access, no analytics. The app makes **zero
 ---
 
 ## License
+
+Copyright 2026 MouseCraft contributors. All rights reserved.
+
+---
+
+<div align="center">
+
+<a id="한국어"></a>
+
+# MouseCraft
+
+**서드파티 마우스를 macOS 네이티브처럼**
+
+트랙패드 같은 부드러운 스크롤, 버튼 리맵, 제스처를 모든 마우스에. 개인정보 최우선 — 텔레메트리 없음, 네트워크 없음, 완전 오프라인.
+
+[![DMG 다운로드](https://img.shields.io/github/v/release/jinhyuk9714/MouseCraft?label=DMG%20다운로드&style=for-the-badge&logo=apple&logoColor=white&color=007AFF)](https://github.com/jinhyuk9714/MouseCraft/releases/latest/download/MouseCraft.dmg)
+
+[릴리스](https://github.com/jinhyuk9714/MouseCraft/releases) · [이슈](https://github.com/jinhyuk9714/MouseCraft/issues)
+
+[English](#mousecraft) | 한국어
+
+</div>
+
+---
+
+## 기능
+
+### 부드러운 스크롤
+CVDisplayLink 기반 픽셀 보간 스크롤. 프레임 단위 동기화로 Apple 트랙패드와 같은 느낌. 뚝뚝 끊기는 라인 스크롤은 이제 끝.
+
+### 버튼 리맵
+사이드 버튼(Button 4/5)을 키보드 단축키로 매핑. 뒤로 가기, 앞으로 가기, 복사, 붙여넣기 등.
+
+### 마우스 제스처
+사이드 버튼을 누른 채 드래그하여 시스템 동작 실행 — Mission Control, App Expose, 데스크톱 전환.
+
+### 앱별 프로필
+앱마다 스크롤, 리맵, 제스처 설정을 따로 지정. 앱에 맞는 최적의 설정.
+
+### 디바이스별 프로필
+연결된 마우스를 HID로 자동 감지. 마우스마다 개별 설정 가능.
+
+### 가져오기 / 내보내기
+모든 설정을 JSON으로 백업 및 복원. 기기 간 손쉬운 이동.
+
+---
+
+## 설치
+
+### 다운로드
+[Releases](https://github.com/jinhyuk9714/MouseCraft/releases/latest) 페이지에서 최신 **MouseCraft.dmg**를 받으세요. DMG를 열고 MouseCraft를 응용 프로그램 폴더로 드래그하면 끝.
+
+### 소스에서 빌드
+macOS 13.0 이상, Xcode 15 이상, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) 필요.
+
+```bash
+make gen   # Xcode 프로젝트 생성
+make run   # 빌드 후 실행
+```
+
+첫 실행 시 **손쉬운 사용(Accessibility)** 과 **입력 모니터링(Input Monitoring)** 권한을 허용해 주세요.
+
+---
+
+## macOS 호환성
+
+| macOS 버전 | 지원 여부 |
+|------------|----------|
+| macOS 13 Ventura | 지원 |
+| macOS 14 Sonoma | 지원 |
+| macOS 15 Sequoia | 지원 |
+| macOS 16 Tahoe | 지원 |
+
+---
+
+## 권한
+
+MouseCraft는 두 가지 시스템 권한이 필요합니다:
+
+- **손쉬운 사용(Accessibility)** — CGEventTap으로 마우스 이벤트를 가로채고 수정하기 위해 필요
+- **입력 모니터링(Input Monitoring)** — macOS 15 이상에서 HID 레벨 이벤트 탭에 필요
+
+그게 전부입니다. 네트워크 접근 없음, 파일 접근 없음, 분석 없음. 이 앱은 네트워크 호출을 **단 한 번도** 하지 않습니다.
+
+---
+
+## 제거 방법
+
+1. 메뉴 바에서 MouseCraft 종료
+2. 응용 프로그램에서 MouseCraft.app 삭제
+3. 설정도 지우려면: `defaults delete com.jinhyuk9714.MouseCraft`
+
+---
+
+## 기여하기
+
+- **버그 제보** — [이슈 등록](https://github.com/jinhyuk9714/MouseCraft/issues)
+- **코드 기여** — Pull Request 환영합니다
+
+---
+
+## 라이선스
 
 Copyright 2026 MouseCraft contributors. All rights reserved.
