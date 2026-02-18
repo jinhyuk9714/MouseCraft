@@ -189,11 +189,11 @@ final class GestureEngine {
 
             downEvent.flags = shortcut.modifiers
             downEvent.setIntegerValueField(.eventSourceUserData, value: EventConstants.syntheticEventMarker)
-            downEvent.post(tap: .cgAnnotatedSessionEventTap)
+            downEvent.post(tap: .cghidEventTap)
 
             upEvent.flags = shortcut.modifiers
             upEvent.setIntegerValueField(.eventSourceUserData, value: EventConstants.syntheticEventMarker)
-            upEvent.post(tap: .cgAnnotatedSessionEventTap)
+            upEvent.post(tap: .cghidEventTap)
         }
     }
 }

@@ -26,8 +26,8 @@ test:
 	@xcodebuild -project $(APP_NAME).xcodeproj -scheme $(APP_NAME) -configuration Debug -derivedDataPath .build $(SIGN_FLAGS) test
 
 run: build
-	@echo "Resetting Accessibility permission for $(BUNDLE_ID)…"
 	@tccutil reset Accessibility $(BUNDLE_ID) 2>/dev/null || true
+	@tccutil reset ListenEvent $(BUNDLE_ID) 2>/dev/null || true
 	@echo "Launching $(APP_NAME)…"
 	@open $(APP_PATH)
 

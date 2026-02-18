@@ -90,6 +90,10 @@ final class HIDDeviceManager {
             devices.append(info)
         }
 
+        // Deduplicate by deviceKey (a single mouse may register multiple HID interfaces)
+        var seen = Set<String>()
+        devices = devices.filter { seen.insert($0.deviceKey).inserted }
+
         // Sort by product name for stable UI ordering
         devices.sort { $0.productName.localizedCaseInsensitiveCompare($1.productName) == .orderedAscending }
 
