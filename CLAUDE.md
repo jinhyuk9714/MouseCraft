@@ -39,7 +39,7 @@ macOS 메뉴바 유틸리티. 마우스 입력을 개선한다:
 - `#if DEBUG` 내부의 print만 허용, NSLog/os_log/Logger 사용 금지.
 - CGEventTap 콜백에서 blocking 작업 금지 (queue.sync 등).
 - 스레드 안전성: ScrollEngine/GestureEngine은 NSLock으로 보호, AppState는 MainActor.
-- 권한은 Accessibility만 사용 (Input Monitoring 불필요).
+- 권한: Accessibility + Input Monitoring (최신 macOS에서 CGEventTap에 둘 다 필요).
 
 ## 주요 아키텍처
 - `EventTapManager` — CGEventTap 생성/관리, 이벤트를 onEvent 콜백으로 전달

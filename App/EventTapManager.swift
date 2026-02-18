@@ -99,17 +99,29 @@ final class EventTapManager {
         let isButtonEvent = type == .otherMouseDown || type == .otherMouseUp || type == .otherMouseDragged
         let location = event.location
 
+        // Shift+scroll → horizontal: AppKit does this conversion later,
+        // but our HID-level tap runs before it. Swap deltas manually.
+        var rawDeltaY: Int32 = 0
+        var rawDeltaX: Int32 = 0
+        if type == .scrollWheel {
+            let axis1 = Int32(event.getIntegerValueField(.scrollWheelEventDeltaAxis1))
+            let axis2 = Int32(event.getIntegerValueField(.scrollWheelEventDeltaAxis2))
+            if event.flags.contains(.maskShift) && axis2 == 0 {
+                rawDeltaX = axis1
+                rawDeltaY = 0
+            } else {
+                rawDeltaY = axis1
+                rawDeltaX = axis2
+            }
+        }
+
         let sample = MouseEventSample(
             type: type,
             buttonNumber: isButtonEvent
                 ? Int(event.getIntegerValueField(.mouseEventButtonNumber))
                 : nil,
-            deltaX: type == .scrollWheel
-                ? Int32(event.getIntegerValueField(.scrollWheelEventDeltaAxis2))
-                : 0,
-            deltaY: type == .scrollWheel
-                ? Int32(event.getIntegerValueField(.scrollWheelEventDeltaAxis1))
-                : 0,
+            deltaX: rawDeltaX,
+            deltaY: rawDeltaY,
             timestamp: event.timestamp,
             sourceUserData: event.getIntegerValueField(.eventSourceUserData),
             locationX: location.x,

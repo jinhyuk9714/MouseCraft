@@ -380,7 +380,7 @@ final class ScrollEngine {
         // Mark as continuous (trackpad-like) so macOS renders smoothly
         event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
         event.setIntegerValueField(.eventSourceUserData, value: EventConstants.syntheticEventMarker)
-        event.post(tap: .cgAnnotatedSessionEventTap)
+        event.post(tap: .cghidEventTap)
     }
 
     private func postLineEvent(vertical: Int32, horizontal: Int32) {
@@ -400,7 +400,7 @@ final class ScrollEngine {
         }
 
         event.setIntegerValueField(.eventSourceUserData, value: EventConstants.syntheticEventMarker)
-        event.post(tap: .cgAnnotatedSessionEventTap)
+        event.post(tap: .cghidEventTap)
     }
 
     // MARK: - Test-only inspection
