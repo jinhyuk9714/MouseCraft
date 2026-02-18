@@ -3,6 +3,8 @@
 A lightweight macOS menu-bar utility that enhances third-party mouse experience.
 Privacy-first, offline-only, no telemetry.
 
+[![Download DMG](https://img.shields.io/github/v/release/jinhyuk9714/MouseCraft?label=Download%20DMG&style=for-the-badge&logo=apple&logoColor=white&color=007AFF)](https://github.com/jinhyuk9714/MouseCraft/releases/latest/download/MouseCraft.dmg)
+
 ## Features
 
 - **Button Remap** — Map side buttons (Button 4/5) to keyboard shortcuts (Back, Forward, Copy, Paste)
