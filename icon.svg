@@ -1,47 +1,66 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#5AB0FF"/>
-      <stop offset="100%" stop-color="#1A7CE8"/>
+    <!-- Background gradient: silver -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F2F3F5"/>
+      <stop offset="100%" stop-color="#C9CDD4"/>
     </linearGradient>
-    <linearGradient id="disc" x1="0" y1="0" x2="0" y2="1">
+
+    <!-- Mouse body gradient -->
+    <linearGradient id="mouseBody" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#FFFFFF"/>
-      <stop offset="100%" stop-color="#E8EAED"/>
+      <stop offset="100%" stop-color="#E4E7EC"/>
     </linearGradient>
-    <linearGradient id="mouse" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#4DA6FF"/>
-      <stop offset="100%" stop-color="#1272DE"/>
+
+    <!-- Scroll wheel -->
+    <linearGradient id="wheel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3A9BFF"/>
+      <stop offset="100%" stop-color="#0066E0"/>
     </linearGradient>
-    <linearGradient id="mouseHighlight" x1="0.3" y1="0" x2="0.7" y2="1">
-      <stop offset="0%" stop-color="#6BBAFF" stop-opacity="0.6"/>
-      <stop offset="100%" stop-color="#1272DE" stop-opacity="0"/>
+
+    <!-- Subtle edge border gradient -->
+    <linearGradient id="border" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#DADDE3"/>
+      <stop offset="100%" stop-color="#A8ADB6"/>
     </linearGradient>
-    <filter id="outerShadow" x="-15%" y="-10%" width="130%" height="135%">
-      <feDropShadow dx="0" dy="8" stdDeviation="18" flood-color="#0D47A1" flood-opacity="0.25"/>
-    </filter>
-    <filter id="mouseShadow" x="-20%" y="-10%" width="140%" height="135%">
-      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0D47A1" flood-opacity="0.3"/>
+
+    <!-- Background border -->
+    <linearGradient id="bgBorder" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D6D9DF"/>
+      <stop offset="100%" stop-color="#A0A5AE"/>
+    </linearGradient>
+
+    <!-- Mouse shadow -->
+    <filter id="mouseShadow" x="-10%" y="-5%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#6B7280" flood-opacity="0.25"/>
     </filter>
   </defs>
 
-  <!-- Outer blue ring -->
-  <circle cx="512" cy="512" r="460" fill="url(#ring)" filter="outerShadow"/>
+  <!-- Background squircle with border -->
+  <rect x="18" y="18" width="988" height="988" rx="222" ry="222" fill="url(#bgBorder)"/>
+  <rect x="22" y="22" width="980" height="980" rx="218" ry="218" fill="url(#bg)"/>
 
-  <!-- White disc -->
-  <circle cx="512" cy="512" r="390" fill="url(#disc)"/>
+  <!-- Subtle top highlight for depth -->
+  <rect x="22" y="22" width="980" height="490" rx="218" ry="218" fill="white" opacity="0.45"/>
 
-  <!-- Mouse body (top-down, rounded pill) -->
-  <g filter="mouseShadow" transform="translate(512, 512)">
-    <!-- Mouse shape -->
-    <rect x="-120" y="-190" width="240" height="370" rx="120" fill="url(#mouse)"/>
+  <!-- Mouse body -->
+  <g filter="mouseShadow" transform="translate(512, 505)">
+    <!-- Mouse outline/border -->
+    <rect x="-137" y="-212" width="274" height="418" rx="137" fill="url(#border)"/>
 
-    <!-- Highlight -->
-    <rect x="-120" y="-190" width="240" height="370" rx="120" fill="url(#mouseHighlight)"/>
+    <!-- Mouse body fill -->
+    <rect x="-132" y="-207" width="264" height="408" rx="132" fill="url(#mouseBody)"/>
 
-    <!-- Divider line -->
-    <line x1="0" y1="-190" x2="0" y2="-10" stroke="#0D5BBF" stroke-width="3" stroke-opacity="0.4"/>
+    <!-- Left/right button divider -->
+    <line x1="0" y1="-207" x2="0" y2="-20" stroke="#C8CDD5" stroke-width="2"/>
 
     <!-- Scroll wheel -->
-    <rect x="-12" y="-140" width="24" height="52" rx="12" fill="white" opacity="0.9"/>
+    <rect x="-13" y="-152" width="26" height="52" rx="13" fill="url(#wheel)"/>
+
+    <!-- Scroll wheel inner highlight -->
+    <rect x="-8" y="-144" width="16" height="36" rx="8" fill="white" opacity="0.25"/>
+
+    <!-- Subtle body highlight (top-left reflection) -->
+    <ellipse cx="-40" cy="-90" rx="50" ry="70" fill="white" opacity="0.18"/>
   </g>
 </svg>
