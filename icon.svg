@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4A9EFF"/>
+      <stop offset="100%" stop-color="#0066E6"/>
+    </linearGradient>
+    <linearGradient id="mouseBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E8ECF0"/>
+    </linearGradient>
+    <linearGradient id="mouseShadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D0D5DD"/>
+      <stop offset="100%" stop-color="#B8BFC9"/>
+    </linearGradient>
+    <linearGradient id="scrollWheel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#007AFF"/>
+      <stop offset="100%" stop-color="#0055CC"/>
+    </linearGradient>
+    <linearGradient id="cursorGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFD60A"/>
+      <stop offset="100%" stop-color="#FFB800"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#003D99" flood-opacity="0.3"/>
+    </filter>
+    <filter id="innerGlow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#FFFFFF" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- macOS rounded square background -->
+  <rect x="20" y="20" width="984" height="984" rx="220" ry="220" fill="url(#bg)"/>
+
+  <!-- Subtle inner highlight -->
+  <rect x="20" y="20" width="984" height="492" rx="220" ry="220" fill="white" opacity="0.08"/>
+
+  <!-- Mouse body - top-down view -->
+  <g filter="shadow" transform="translate(512, 480)">
+    <!-- Mouse body outline (rounded egg shape) -->
+    <ellipse cx="0" cy="30" rx="155" ry="210" fill="url(#mouseShadow)"/>
+    <ellipse cx="0" cy="24" rx="150" ry="205" fill="url(#mouseBody)"/>
+
+    <!-- Center divider line -->
+    <line x1="0" y1="-170" x2="0" y2="-20" stroke="#D0D5DD" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Scroll wheel -->
+    <rect x="-14" y="-130" width="28" height="56" rx="14" fill="url(#scrollWheel)"/>
+    <rect x="-10" y="-124" width="20" height="44" rx="10" fill="none" stroke="white" stroke-width="1.5" opacity="0.3"/>
+
+    <!-- Mouse button highlights -->
+    <ellipse cx="-55" cy="-80" rx="35" ry="50" fill="white" opacity="0.15"/>
+
+    <!-- Side buttons (left side) -->
+    <rect x="-158" y="-30" width="16" height="36" rx="5" fill="#B0B8C4"/>
+    <rect x="-158" y="16" width="16" height="36" rx="5" fill="#B0B8C4"/>
+  </g>
+
+  <!-- Sparkle / craft stars -->
+  <!-- Top-right sparkle -->
+  <g transform="translate(720, 220)" fill="#FFD60A">
+    <path d="M0,-28 C3,-8 8,-3 28,0 C8,3 3,8 0,28 C-3,8 -8,3 -28,0 C-8,-3 -3,-8 0,-28Z"/>
+  </g>
+
+  <!-- Small sparkle -->
+  <g transform="translate(660, 310) scale(0.5)" fill="#FFD60A" opacity="0.7">
+    <path d="M0,-28 C3,-8 8,-3 28,0 C8,3 3,8 0,28 C-3,8 -8,3 -28,0 C-8,-3 -3,-8 0,-28Z"/>
+  </g>
+
+  <!-- Bottom-left sparkle -->
+  <g transform="translate(300, 740) scale(0.6)" fill="white" opacity="0.5">
+    <path d="M0,-28 C3,-8 8,-3 28,0 C8,3 3,8 0,28 C-3,8 -8,3 -28,0 C-8,-3 -3,-8 0,-28Z"/>
+  </g>
+
+  <!-- Cursor arrow (bottom-right) -->
+  <g transform="translate(680, 640) rotate(5)">
+    <path d="M0,0 L0,80 L22,62 L38,95 L52,88 L36,55 L60,50 Z"
+          fill="url(#cursorGrad)" stroke="#CC9500" stroke-width="3" stroke-linejoin="round"/>
+  </g>
+</svg>
