@@ -20,6 +20,8 @@ targets:
       configs:
         Release:
           ENABLE_HARDENED_RUNTIME: YES
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+          OTHER_CODE_SIGN_FLAGS: "--timestamp"
   MouseCraftTests:
     type: bundle.unit-test
     platform: macOS
