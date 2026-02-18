@@ -6,8 +6,9 @@ BUNDLE_ID := com.jinhyuk9714.MouseCraft
 APP_PATH := .build/Build/Products/Debug/$(APP_NAME).app
 RELEASE_APP_PATH := .build/Build/Products/Release/$(APP_NAME).app
 ARCHIVE_PATH := .build/$(APP_NAME).xcarchive
+DMG_PATH := .build/$(APP_NAME).dmg
 
-.PHONY: gen build test clean run release archive notarize
+.PHONY: gen build test clean run release archive dmg notarize
 
 gen:
 	@command -v xcodegen >/dev/null 2>&1 || { echo "xcodegen not found. Install with: brew install xcodegen"; exit 1; }
@@ -40,25 +41,30 @@ archive:
 	@xcodebuild -project $(APP_NAME).xcodeproj -scheme $(APP_NAME) -configuration Release -archivePath $(ARCHIVE_PATH) $(RELEASE_SIGN_FLAGS) archive
 	@echo "Archive at: $(ARCHIVE_PATH)"
 
+dmg: release
+	@echo "Creating DMG…"
+	@rm -f $(DMG_PATH)
+	@hdiutil create -volname "$(APP_NAME)" -srcfolder $(RELEASE_APP_PATH) \
+		-ov -format UDZO $(DMG_PATH)
+	@echo "DMG at: $(DMG_PATH)"
+
 # Usage: make notarize TEAM_ID=XXXX NOTARIZE_KEYCHAIN_PROFILE=my-profile
 TEAM_ID ?= UNSET
 NOTARIZE_KEYCHAIN_PROFILE ?= UNSET
-notarize: release
+notarize: dmg
 	@if [ "$(TEAM_ID)" = "UNSET" ] || [ "$(NOTARIZE_KEYCHAIN_PROFILE)" = "UNSET" ]; then \
 		echo "Error: Set TEAM_ID and NOTARIZE_KEYCHAIN_PROFILE"; \
 		echo "  make notarize TEAM_ID=XXXXX NOTARIZE_KEYCHAIN_PROFILE=my-profile"; \
 		exit 1; \
 	fi
-	@echo "Zipping for notarization…"
-	@ditto -c -k --keepParent $(RELEASE_APP_PATH) .build/$(APP_NAME).zip
-	@echo "Submitting to Apple notary service…"
-	@xcrun notarytool submit .build/$(APP_NAME).zip \
+	@echo "Submitting DMG to Apple notary service…"
+	@xcrun notarytool submit $(DMG_PATH) \
 		--keychain-profile "$(NOTARIZE_KEYCHAIN_PROFILE)" \
 		--team-id "$(TEAM_ID)" \
 		--wait
-	@echo "Stapling notarization ticket…"
-	@xcrun stapler staple $(RELEASE_APP_PATH)
-	@echo "Notarization complete."
+	@echo "Stapling notarization ticket to DMG…"
+	@xcrun stapler staple $(DMG_PATH)
+	@echo "Notarization complete. Distribute: $(DMG_PATH)"
 
 clean:
 	rm -rf .build $(APP_NAME).xcodeproj
