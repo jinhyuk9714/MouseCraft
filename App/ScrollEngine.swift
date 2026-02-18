@@ -3,16 +3,23 @@ import CoreGraphics
 import CoreVideo
 
 final class ScrollEngine {
+    // MARK: - Per-axis state
+
+    private struct AxisState {
+        var target: Double = 0
+        var current: Double = 0
+        var subPixelRemainder: Double = 0
+        var velocity: Double = 0
+    }
+
     // MARK: - Animation state (protected by stateLock)
 
     private let stateLock = NSLock()
-    private var targetY: Double = 0
-    private var currentY: Double = 0
-    private var subPixelRemainder: Double = 0
+    private var yAxis = AxisState()
+    private var xAxis = AxisState()
 
     // MARK: - Momentum state (protected by stateLock)
 
-    private var velocity: Double = 0
     private var lastInputTime: UInt64 = 0
     private var inMomentumPhase: Bool = false
     private var lastFrameTime: UInt64 = 0
@@ -56,17 +63,20 @@ final class ScrollEngine {
     }
 
     deinit {
-        stopDisplayLink()
+        // Stop synchronously: CVDisplayLinkStop blocks until the current
+        // callback completes, preventing use-after-free on the
+        // passUnretained self pointer used in the callback context.
+        if let link = displayLink {
+            CVDisplayLinkStop(link)
+        }
     }
 
     // MARK: - Public API
 
     func reset() {
         stateLock.lock()
-        targetY = 0
-        currentY = 0
-        subPixelRemainder = 0
-        velocity = 0
+        yAxis = AxisState()
+        xAxis = AxisState()
         lastInputTime = 0
         inMomentumPhase = false
         lastFrameTime = 0
@@ -80,31 +90,54 @@ final class ScrollEngine {
     func handle(_ sample: MouseEventSample, settings: ScrollSettings) -> Bool {
         guard settings.enabled else { return false }
         guard sample.type == .scrollWheel else { return false }
-        guard sample.deltaY != 0 else { return false }
+        guard sample.deltaY != 0 || sample.deltaX != 0 else { return false }
 
         if settings.smoothness == .off {
             return handlePassThrough(sample, settings: settings)
         }
 
         let normalizedSpeed = settings.speed.clamped(to: 0.5...3.0)
-        let direction: Double = settings.invertMouseScroll ? -1.0 : 1.0
-        let baseDelta = Double(sample.deltaY) * normalizedSpeed * direction * pixelMultiplier(for: settings.smoothness)
+        let vertDirection: Double = settings.invertMouseScroll ? -1.0 : 1.0
+        let horizDirection: Double = settings.invertHorizontalScroll ? -1.0 : 1.0
+        let pxMul = pixelMultiplier(for: settings.smoothness)
+
+        var yPixelDelta: Double = 0
+        var xPixelDelta: Double = 0
 
         stateLock.lock()
 
-        // Apply non-linear acceleration using current velocity magnitude
-        let pixelDelta = acceleratedDelta(baseDelta, velocity: velocity, strength: settings.acceleration)
+        // Process Y axis
+        if sample.deltaY != 0 {
+            let baseDelta = Double(sample.deltaY) * normalizedSpeed * vertDirection * pxMul
+            yPixelDelta = acceleratedDelta(baseDelta, velocity: yAxis.velocity, strength: settings.acceleration)
 
-        // Reset on direction reversal for instant response
-        let directionChanged = (pixelDelta > 0 && targetY < currentY) || (pixelDelta < 0 && targetY > currentY)
-        if directionChanged {
-            targetY = currentY
-            subPixelRemainder = 0
-            velocity = 0
-            inMomentumPhase = false
+            let dirChanged = (yPixelDelta > 0 && yAxis.target < yAxis.current) || (yPixelDelta < 0 && yAxis.target > yAxis.current)
+            if dirChanged {
+                yAxis.target = yAxis.current
+                yAxis.subPixelRemainder = 0
+                yAxis.velocity = 0
+                inMomentumPhase = false
+            }
+
+            yAxis.target += yPixelDelta
         }
 
-        targetY += pixelDelta
+        // Process X axis
+        if sample.deltaX != 0 {
+            let baseDelta = Double(sample.deltaX) * normalizedSpeed * horizDirection * pxMul
+            xPixelDelta = acceleratedDelta(baseDelta, velocity: xAxis.velocity, strength: settings.acceleration)
+
+            let dirChanged = (xPixelDelta > 0 && xAxis.target < xAxis.current) || (xPixelDelta < 0 && xAxis.target > xAxis.current)
+            if dirChanged {
+                xAxis.target = xAxis.current
+                xAxis.subPixelRemainder = 0
+                xAxis.velocity = 0
+                inMomentumPhase = false
+            }
+
+            xAxis.target += xPixelDelta
+        }
+
         lerpFactor = lerpFactor(for: settings.smoothness)
         cachedSmoothness = settings.smoothness
         cachedMomentum = settings.momentum
@@ -114,9 +147,16 @@ final class ScrollEngine {
         if lastInputTime != 0 {
             let dtInput = Self.machTimeToSeconds(now - lastInputTime)
             if dtInput > 0 && dtInput < 0.5 {
-                let instantVelocity = pixelDelta / dtInput
-                let raw = velocity * 0.7 + instantVelocity * 0.3
-                velocity = raw.clamped(to: -Self.maxVelocity...Self.maxVelocity)
+                if sample.deltaY != 0 {
+                    let instantVelocity = yPixelDelta / dtInput
+                    let raw = yAxis.velocity * 0.7 + instantVelocity * 0.3
+                    yAxis.velocity = raw.clamped(to: -Self.maxVelocity...Self.maxVelocity)
+                }
+                if sample.deltaX != 0 {
+                    let instantVelocity = xPixelDelta / dtInput
+                    let raw = xAxis.velocity * 0.7 + instantVelocity * 0.3
+                    xAxis.velocity = raw.clamped(to: -Self.maxVelocity...Self.maxVelocity)
+                }
             }
         }
         lastInputTime = now
@@ -182,15 +222,17 @@ final class ScrollEngine {
 
     private func handlePassThrough(_ sample: MouseEventSample, settings: ScrollSettings) -> Bool {
         let normalizedSpeed = settings.speed.clamped(to: 0.5...3.0)
-        let noTransformNeeded = normalizedSpeed == 1.0 && !settings.invertMouseScroll
+        let noTransformNeeded = normalizedSpeed == 1.0 && !settings.invertMouseScroll && !settings.invertHorizontalScroll
         guard !noTransformNeeded else { return false }
 
-        let direction: Double = settings.invertMouseScroll ? -1.0 : 1.0
-        let value = Double(sample.deltaY) * normalizedSpeed * direction
-        let step = Int32(value.rounded())
-        guard step != 0 else { return false }
+        let vertDirection: Double = settings.invertMouseScroll ? -1.0 : 1.0
+        let horizDirection: Double = settings.invertHorizontalScroll ? -1.0 : 1.0
 
-        postLineEvent(step)
+        let vertStep = Int32((Double(sample.deltaY) * normalizedSpeed * vertDirection).rounded())
+        let horizStep = Int32((Double(sample.deltaX) * normalizedSpeed * horizDirection).rounded())
+        guard vertStep != 0 || horizStep != 0 else { return false }
+
+        postLineEvent(vertical: vertStep, horizontal: horizStep)
         return true
     }
 
@@ -245,50 +287,71 @@ final class ScrollEngine {
         // Check for momentum phase entry
         if !inMomentumPhase && lastInputTime != 0 && cachedSmoothness != .off {
             let timeSinceLastInput = Self.machTimeToSeconds(nowMach - lastInputTime)
-            if timeSinceLastInput > Self.momentumIdleThreshold && abs(velocity) > Self.momentumStopThreshold {
+            let hasVelocity = abs(yAxis.velocity) > Self.momentumStopThreshold || abs(xAxis.velocity) > Self.momentumStopThreshold
+            if timeSinceLastInput > Self.momentumIdleThreshold && hasVelocity {
                 inMomentumPhase = true
             }
         }
 
-        // Advance targetY if in momentum phase
+        // Advance targets if in momentum phase
         if inMomentumPhase {
             let friction = effectiveFriction(smoothness: cachedSmoothness, momentum: cachedMomentum)
-            velocity *= exp(-friction * dt)
+            let decayFactor = exp(-friction * dt)
 
-            if abs(velocity) < Self.momentumStopThreshold {
-                velocity = 0
+            yAxis.velocity *= decayFactor
+            xAxis.velocity *= decayFactor
+
+            let yDead = abs(yAxis.velocity) < Self.momentumStopThreshold
+            let xDead = abs(xAxis.velocity) < Self.momentumStopThreshold
+
+            if yDead { yAxis.velocity = 0 }
+            if xDead { xAxis.velocity = 0 }
+
+            if yDead && xDead {
                 inMomentumPhase = false
             } else {
-                targetY += velocity * dt
+                if !yDead { yAxis.target += yAxis.velocity * dt }
+                if !xDead { xAxis.target += xAxis.velocity * dt }
             }
         }
 
         // Frame-rate independent lerp: at 60fps dt*60=1.0 so factor==lerpFactor
-        let remaining = targetY - currentY
         let factor = 1.0 - pow(1.0 - lerpFactor, dt * 60.0)
-        let step = remaining * factor
 
-        currentY += step
-
-        // Sub-pixel accumulation: accumulate fractional pixels, only post integer deltas
-        subPixelRemainder += step
-        let intDelta = Int32(subPixelRemainder.rounded(.towardZero))
-        if intDelta != 0 {
-            subPixelRemainder -= Double(intDelta)
+        // Y axis lerp + sub-pixel accumulation
+        let yRemaining = yAxis.target - yAxis.current
+        let yStep = yRemaining * factor
+        yAxis.current += yStep
+        yAxis.subPixelRemainder += yStep
+        let yIntDelta = Int32(yAxis.subPixelRemainder.rounded(.towardZero))
+        if yIntDelta != 0 {
+            yAxis.subPixelRemainder -= Double(yIntDelta)
         }
 
-        // Stop only when momentum is done AND lerp has converged
-        let shouldStop = !inMomentumPhase && abs(remaining) < 0.1
+        // X axis lerp + sub-pixel accumulation
+        let xRemaining = xAxis.target - xAxis.current
+        let xStep = xRemaining * factor
+        xAxis.current += xStep
+        xAxis.subPixelRemainder += xStep
+        let xIntDelta = Int32(xAxis.subPixelRemainder.rounded(.towardZero))
+        if xIntDelta != 0 {
+            xAxis.subPixelRemainder -= Double(xIntDelta)
+        }
+
+        // Stop only when momentum is done AND both axes have converged
+        let shouldStop = !inMomentumPhase && abs(yRemaining) < 0.1 && abs(xRemaining) < 0.1
         if shouldStop {
-            currentY = targetY
-            subPixelRemainder = 0
+            yAxis.current = yAxis.target
+            yAxis.subPixelRemainder = 0
+            xAxis.current = xAxis.target
+            xAxis.subPixelRemainder = 0
             lastFrameTime = 0
         }
 
         stateLock.unlock()
 
-        if intDelta != 0 {
-            postPixelEvent(intDelta)
+        if yIntDelta != 0 || xIntDelta != 0 {
+            postPixelEvent(vertical: yIntDelta, horizontal: xIntDelta)
         }
 
         if shouldStop {
@@ -298,17 +361,18 @@ final class ScrollEngine {
 
     // MARK: - Event posting
 
-    private func postPixelEvent(_ delta: Int32) {
+    private func postPixelEvent(vertical: Int32, horizontal: Int32) {
+        let wheelCount: UInt32 = horizontal != 0 ? 2 : 1
         guard let event = CGEvent(
             scrollWheelEvent2Source: nil,
             units: .pixel,
-            wheelCount: 1,
-            wheel1: delta,
-            wheel2: 0,
+            wheelCount: wheelCount,
+            wheel1: vertical,
+            wheel2: horizontal,
             wheel3: 0
         ) else {
             #if DEBUG
-            print("[MouseCraft] ScrollEngine: Failed to create pixel scroll event (delta=\(delta))")
+            print("[MouseCraft] ScrollEngine: Failed to create pixel scroll event (v=\(vertical), h=\(horizontal))")
             #endif
             return
         }
@@ -316,26 +380,27 @@ final class ScrollEngine {
         // Mark as continuous (trackpad-like) so macOS renders smoothly
         event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
         event.setIntegerValueField(.eventSourceUserData, value: EventConstants.syntheticEventMarker)
-        event.post(tap: .cghidEventTap)
+        event.post(tap: .cgAnnotatedSessionEventTap)
     }
 
-    private func postLineEvent(_ delta: Int32) {
+    private func postLineEvent(vertical: Int32, horizontal: Int32) {
+        let wheelCount: UInt32 = horizontal != 0 ? 2 : 1
         guard let event = CGEvent(
             scrollWheelEvent2Source: nil,
             units: .line,
-            wheelCount: 1,
-            wheel1: delta,
-            wheel2: 0,
+            wheelCount: wheelCount,
+            wheel1: vertical,
+            wheel2: horizontal,
             wheel3: 0
         ) else {
             #if DEBUG
-            print("[MouseCraft] ScrollEngine: Failed to create line scroll event (delta=\(delta))")
+            print("[MouseCraft] ScrollEngine: Failed to create line scroll event (v=\(vertical), h=\(horizontal))")
             #endif
             return
         }
 
         event.setIntegerValueField(.eventSourceUserData, value: EventConstants.syntheticEventMarker)
-        event.post(tap: .cghidEventTap)
+        event.post(tap: .cgAnnotatedSessionEventTap)
     }
 
     // MARK: - Test-only inspection
@@ -344,7 +409,7 @@ final class ScrollEngine {
     var _testVelocity: Double {
         stateLock.lock()
         defer { stateLock.unlock() }
-        return velocity
+        return yAxis.velocity
     }
 
     var _testInMomentumPhase: Bool {

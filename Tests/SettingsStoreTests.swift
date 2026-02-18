@@ -219,5 +219,150 @@ final class SettingsStoreTests: XCTestCase {
         let decoded = try JSONDecoder().decode(SettingsExport.self, from: json)
         XCTAssertEqual(decoded.scroll.acceleration, 0.5, "v2 import should default acceleration to 0.5")
         XCTAssertEqual(decoded.scroll.momentum, 0.5, "v2 import should default momentum to 0.5")
+        XCTAssertEqual(decoded.scroll.invertHorizontalScroll, false, "v2 import should default invertHorizontalScroll to false")
+    }
+
+    // MARK: - Horizontal Scroll
+
+    func testInvertHorizontalScrollSaveAndLoad() {
+        let store = SettingsStore(defaults: defaults)
+
+        store.saveScroll(ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                        invertMouseScroll: false, invertHorizontalScroll: true))
+        XCTAssertTrue(store.load().scroll.invertHorizontalScroll)
+
+        store.saveScroll(ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                        invertMouseScroll: false, invertHorizontalScroll: false))
+        XCTAssertFalse(store.load().scroll.invertHorizontalScroll)
+    }
+
+    func testLoadDefaultsForMissingInvertHorizontalScroll() {
+        let store = SettingsStore(defaults: defaults)
+
+        defaults.set(true, forKey: "settings.scroll.enabled")
+        defaults.set("regular", forKey: "settings.scroll.smoothness")
+        defaults.set(1.0, forKey: "settings.scroll.speed")
+
+        let loaded = store.load()
+        XCTAssertFalse(loaded.scroll.invertHorizontalScroll, "Missing invertHorizontalScroll should default to false")
+    }
+
+    func testV3JSONImportBackwardsCompatibility() throws {
+        // v3 JSON without invertHorizontalScroll field
+        let json = """
+        {
+            "schemaVersion": 3,
+            "exportDate": "2026-02-18T00:00:00Z",
+            "general": { "enabled": true, "showInMenuBar": true },
+            "remap": { "enabled": false, "button4Preset": "back", "button5Preset": "forward" },
+            "scroll": { "enabled": true, "smoothness": "high", "speed": 1.5,
+                        "acceleration": 0.7, "momentum": 0.4, "invertMouseScroll": false },
+            "profiles": []
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(SettingsExport.self, from: json)
+        XCTAssertFalse(decoded.scroll.invertHorizontalScroll, "v3 import should default invertHorizontalScroll to false")
+        XCTAssertEqual(decoded.scroll.acceleration, 0.7)
+        XCTAssertEqual(decoded.scroll.momentum, 0.4)
+    }
+
+    // MARK: - Gesture Settings
+
+    func testGestureSaveAndLoad() {
+        let store = SettingsStore(defaults: defaults)
+
+        let gesture = GestureSettings(
+            enabled: true, triggerButton: 4, dragThreshold: 75.0,
+            swipeUp: .launchpad, swipeDown: .showDesktop,
+            swipeLeft: .desktopLeft, swipeRight: .desktopRight
+        )
+        store.saveGesture(gesture)
+
+        let loaded = store.load()
+        XCTAssertTrue(loaded.gesture.enabled)
+        XCTAssertEqual(loaded.gesture.triggerButton, 4)
+        XCTAssertEqual(loaded.gesture.dragThreshold, 75.0)
+        XCTAssertEqual(loaded.gesture.swipeUp, .launchpad)
+        XCTAssertEqual(loaded.gesture.swipeDown, .showDesktop)
+    }
+
+    func testGestureThresholdIsClamped() {
+        let store = SettingsStore(defaults: defaults)
+
+        store.saveGesture(GestureSettings(
+            enabled: true, triggerButton: 3, dragThreshold: 200,
+            swipeUp: .missionControl, swipeDown: .appExpose,
+            swipeLeft: .desktopLeft, swipeRight: .desktopRight
+        ))
+        XCTAssertEqual(store.load().gesture.dragThreshold, 100)
+
+        store.saveGesture(GestureSettings(
+            enabled: true, triggerButton: 3, dragThreshold: 10,
+            swipeUp: .missionControl, swipeDown: .appExpose,
+            swipeLeft: .desktopLeft, swipeRight: .desktopRight
+        ))
+        XCTAssertEqual(store.load().gesture.dragThreshold, 30)
+    }
+
+    func testLoadDefaultsForMissingGestureSettings() {
+        let store = SettingsStore(defaults: defaults)
+
+        let loaded = store.load()
+        XCTAssertEqual(loaded.gesture, .default)
+    }
+
+    func testV5JSONImportBackwardsCompatibility() throws {
+        // v5 JSON without gesture field
+        let json = """
+        {
+            "schemaVersion": 5,
+            "exportDate": "2026-02-18T00:00:00Z",
+            "general": { "enabled": true, "showInMenuBar": true },
+            "remap": { "enabled": false, "button4Preset": "back", "button5Preset": "forward" },
+            "scroll": { "enabled": true, "smoothness": "high", "speed": 1.5,
+                        "acceleration": 0.7, "momentum": 0.4,
+                        "invertMouseScroll": false, "invertHorizontalScroll": false },
+            "profiles": []
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(SettingsExport.self, from: json)
+        XCTAssertNil(decoded.gesture, "v5 import should have nil gesture")
+    }
+
+    func testV6JSONImportWithGesture() throws {
+        let json = """
+        {
+            "schemaVersion": 6,
+            "exportDate": "2026-02-18T00:00:00Z",
+            "general": { "enabled": true, "showInMenuBar": true },
+            "remap": { "enabled": false, "button4Preset": "back", "button5Preset": "forward" },
+            "scroll": { "enabled": true, "smoothness": "high", "speed": 1.5,
+                        "acceleration": 0.7, "momentum": 0.4,
+                        "invertMouseScroll": false, "invertHorizontalScroll": false },
+            "gesture": { "enabled": true, "triggerButton": 3, "dragThreshold": 50.0,
+                         "swipeUp": "missionControl", "swipeDown": "appExpose",
+                         "swipeLeft": "desktopLeft", "swipeRight": "desktopRight" },
+            "profiles": []
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(SettingsExport.self, from: json)
+        XCTAssertEqual(decoded.gesture?.enabled, true)
+        XCTAssertEqual(decoded.gesture?.swipeUp, .missionControl)
+    }
+
+    // MARK: - Onboarding
+
+    func testOnboardingCompletedDefaultsToFalse() {
+        let store = SettingsStore(defaults: defaults)
+        XCTAssertFalse(store.loadOnboardingCompleted())
+    }
+
+    func testOnboardingCompletedSaveAndLoad() {
+        let store = SettingsStore(defaults: defaults)
+        store.saveOnboardingCompleted(true)
+        XCTAssertTrue(store.loadOnboardingCompleted())
     }
 }

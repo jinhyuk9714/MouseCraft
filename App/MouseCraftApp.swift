@@ -4,6 +4,7 @@ import SwiftUI
 struct MouseCraftApp: App {
     @StateObject private var appState = AppState()
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
         MenuBarExtra("MouseCraft", systemImage: "computermouse") {
@@ -13,6 +14,13 @@ struct MouseCraftApp: App {
 
         Window("MouseCraft", id: "settings") {
             SettingsView(appState: appState)
+                .sheet(isPresented: Binding(
+                    get: { !appState.hasCompletedOnboarding },
+                    set: { if !$0 { appState.completeOnboarding() } }
+                )) {
+                    OnboardingView(appState: appState)
+                        .interactiveDismissDisabled()
+                }
                 .onAppear {
                     NSApp.setActivationPolicy(.regular)
                 }
@@ -29,6 +37,24 @@ struct MouseCraftApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Auto-open settings window on first launch for onboarding
+        let onboardingCompleted = SettingsStore().loadOnboardingCompleted()
+        if !onboardingCompleted {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
+                    window.makeKeyAndOrderFront(nil)
+                }
+                NSApp.setActivationPolicy(.regular)
+                if #available(macOS 14.0, *) {
+                    NSApp.activate()
+                } else {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
+        }
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
             if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {

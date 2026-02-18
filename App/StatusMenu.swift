@@ -31,6 +31,13 @@ struct StatusMenu: View {
                     isOn: $appState.scrollSettings.enabled,
                     disabled: !appState.enabled
                 )
+                FeatureRow(
+                    icon: "hand.draw",
+                    iconColor: .green,
+                    title: "Gestures",
+                    isOn: $appState.gestureSettings.enabled,
+                    disabled: !appState.enabled
+                )
             }
             .padding(MCStyle.popoverPadding)
 
@@ -112,7 +119,7 @@ struct StatusMenu: View {
             Text("Debug: \(appState.debugEventCounts.total) events")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-            Text("down=\(appState.debugEventCounts.otherMouseDown) up=\(appState.debugEventCounts.otherMouseUp) scroll=\(appState.debugEventCounts.scrollWheel)")
+            Text("down=\(appState.debugEventCounts.otherMouseDown) up=\(appState.debugEventCounts.otherMouseUp) drag=\(appState.debugEventCounts.otherMouseDragged) scroll=\(appState.debugEventCounts.scrollWheel)")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .monospacedDigit()

@@ -8,7 +8,9 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case general
     case remap
     case scrolling
+    case gestures
     case apps
+    case devices
     case about
 
     var id: String { rawValue }
@@ -18,7 +20,9 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .general: return "General"
         case .remap: return "Remap"
         case .scrolling: return "Scrolling"
+        case .gestures: return "Gestures"
         case .apps: return "Apps"
+        case .devices: return "Devices"
         case .about: return "About"
         }
     }
@@ -28,7 +32,9 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .general: return "gearshape"
         case .remap: return "computermouse"
         case .scrolling: return "arrow.up.and.down"
+        case .gestures: return "hand.draw"
         case .apps: return "square.grid.2x2"
+        case .devices: return "display"
         case .about: return "info.circle"
         }
     }
@@ -64,8 +70,12 @@ struct SettingsView: View {
             RemapSettingsView(appState: appState)
         case .scrolling:
             ScrollingSettingsView(appState: appState)
+        case .gestures:
+            GestureSettingsView(appState: appState)
         case .apps:
             AppProfilesView(appState: appState)
+        case .devices:
+            DeviceProfilesView(appState: appState)
         case .about:
             AboutView()
         }
@@ -315,7 +325,7 @@ private struct RemapSettingsView: View {
                     }
                 }
 
-                Text("Button 4, 5는 대부분 마우스의 사이드 버튼입니다.")
+                Text("Buttons 4 and 5 are typically the side buttons on most mice.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.leading, 4)
@@ -373,6 +383,10 @@ private struct ScrollingSettingsView: View {
 
     private var invertBinding: Binding<Bool> {
         Binding(get: { localSettings.invertMouseScroll }, set: { localSettings.invertMouseScroll = $0 })
+    }
+
+    private var invertHorizontalBinding: Binding<Bool> {
+        Binding(get: { localSettings.invertHorizontalScroll }, set: { localSettings.invertHorizontalScroll = $0 })
     }
 
     var body: some View {
@@ -475,10 +489,22 @@ private struct ScrollingSettingsView: View {
                                 .tint(MCStyle.accent)
                                 .disabled(!localSettings.enabled)
                         }
+
+                        Divider()
+
+                        HStack {
+                            Label("Invert horizontal scroll", systemImage: "arrow.left.arrow.right")
+                            Spacer()
+                            Toggle("", isOn: invertHorizontalBinding)
+                                .toggleStyle(.switch)
+                                .labelsHidden()
+                                .tint(MCStyle.accent)
+                                .disabled(!localSettings.enabled)
+                        }
                     }
                 }
 
-                Text("Regular/High 모드에서 부드러운 스크롤과 관성이 적용됩니다.")
+                Text("Smooth scrolling and momentum are applied in Regular/High modes.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.leading, 4)
@@ -490,6 +516,146 @@ private struct ScrollingSettingsView: View {
         .onAppear { syncFromAppState(appState.scrollSettings) }
         .onChange(of: appState.scrollSettings) { syncFromAppState($0) }
         .onChange(of: localSettings) { syncToAppState($0) }
+    }
+}
+
+// MARK: - Gestures
+
+private struct GestureSettingsView: View {
+    @ObservedObject var appState: AppState
+    @State private var localSettings: GestureSettings
+
+    init(appState: AppState) {
+        self.appState = appState
+        _localSettings = State(initialValue: appState.gestureSettings)
+    }
+
+    private func syncFromAppState(_ latest: GestureSettings) {
+        guard localSettings != latest else { return }
+        localSettings = latest
+    }
+
+    private func syncToAppState(_ latest: GestureSettings) {
+        guard appState.gestureSettings != latest else { return }
+        appState.gestureSettings = latest
+    }
+
+    private var gestureEnabledBinding: Binding<Bool> {
+        Binding(get: { localSettings.enabled }, set: { localSettings.enabled = $0 })
+    }
+
+    private var triggerButtonBinding: Binding<Int> {
+        Binding(get: { localSettings.triggerButton }, set: { localSettings.triggerButton = $0 })
+    }
+
+    private var thresholdBinding: Binding<Double> {
+        Binding(get: { localSettings.dragThreshold }, set: { localSettings.dragThreshold = min(max($0, 30), 100) })
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MCStyle.sectionSpacing) {
+                SectionHeader(title: "Mouse Gestures", systemImage: "hand.draw")
+
+                SectionBox {
+                    HStack {
+                        Label("Enable mouse gestures", systemImage: "hand.draw")
+                        Spacer()
+                        Toggle("", isOn: gestureEnabledBinding)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                            .tint(MCStyle.accent)
+                    }
+                }
+
+                SectionHeader(title: "Trigger", systemImage: "computermouse")
+
+                SectionBox {
+                    VStack(alignment: .leading, spacing: MCStyle.itemSpacing) {
+                        HStack {
+                            Text("Trigger Button")
+                            Spacer()
+                            Picker("", selection: triggerButtonBinding) {
+                                Text("Button 4").tag(3)
+                                Text("Button 5").tag(4)
+                            }
+                            .labelsHidden()
+                            .frame(width: 140)
+                            .disabled(!localSettings.enabled)
+                        }
+
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Drag Threshold")
+                                Spacer()
+                                Text("\(Int(localSettings.dragThreshold))px")
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                                    .font(.callout)
+                            }
+                            Slider(value: thresholdBinding, in: 30...100, step: 5)
+                                .disabled(!localSettings.enabled)
+                                .tint(MCStyle.accent)
+                            Text("Minimum drag distance to trigger a gesture. Lower = more sensitive.")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+
+                SectionHeader(title: "Swipe Actions", systemImage: "arrow.up.and.down.and.arrow.left.and.right")
+
+                SectionBox {
+                    VStack(alignment: .leading, spacing: MCStyle.itemSpacing) {
+                        gestureDirectionRow(label: "Swipe Up", icon: "arrow.up",
+                            binding: Binding(get: { localSettings.swipeUp }, set: { localSettings.swipeUp = $0 }))
+
+                        Divider()
+
+                        gestureDirectionRow(label: "Swipe Down", icon: "arrow.down",
+                            binding: Binding(get: { localSettings.swipeDown }, set: { localSettings.swipeDown = $0 }))
+
+                        Divider()
+
+                        gestureDirectionRow(label: "Swipe Left", icon: "arrow.left",
+                            binding: Binding(get: { localSettings.swipeLeft }, set: { localSettings.swipeLeft = $0 }))
+
+                        Divider()
+
+                        gestureDirectionRow(label: "Swipe Right", icon: "arrow.right",
+                            binding: Binding(get: { localSettings.swipeRight }, set: { localSettings.swipeRight = $0 }))
+                    }
+                }
+
+                Text("Hold a side button and drag to perform trackpad-like gestures. Quick clicks still trigger remap actions.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.leading, 4)
+
+                Spacer()
+            }
+            .padding(24)
+        }
+        .onAppear { syncFromAppState(appState.gestureSettings) }
+        .onChange(of: appState.gestureSettings) { syncFromAppState($0) }
+        .onChange(of: localSettings) { syncToAppState($0) }
+    }
+
+    private func gestureDirectionRow(label: String, icon: String, binding: Binding<GestureActionPreset>) -> some View {
+        HStack {
+            Label(label, systemImage: icon)
+            Spacer()
+            Picker("", selection: binding) {
+                ForEach(GestureActionPreset.allCases) { preset in
+                    Text(preset.displayName).tag(preset)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 180)
+            .disabled(!localSettings.enabled)
+        }
     }
 }
 
@@ -566,7 +732,7 @@ private struct AppProfilesView: View {
                     )
                 }
 
-                Text("앱별로 다른 리맵/스크롤 설정을 적용할 수 있습니다. 설정하지 않은 항목은 전역 설정을 따릅니다.")
+                Text("Customize remap/scroll settings per app. Unset options inherit from global settings.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.leading, 4)
@@ -584,7 +750,8 @@ private struct AppProfilesView: View {
                     bundleIdentifier: bundleID,
                     displayName: displayName,
                     remap: nil,
-                    scroll: nil
+                    scroll: nil,
+                    gesture: nil
                 )
                 appState.addProfile(profile)
                 selectedProfileID = profile.id
@@ -603,6 +770,7 @@ private struct ProfileRow: View {
         var parts: [String] = []
         if profile.remap != nil { parts.append("Remap") }
         if profile.scroll != nil { parts.append("Scroll") }
+        if profile.gesture != nil { parts.append("Gesture") }
         return parts.isEmpty ? "No overrides" : parts.joined(separator: ", ")
     }
 
@@ -776,8 +944,25 @@ private struct AppProfileDetailView: View {
                             set: { newVal in ensureScrollOverride(); profile.scroll?.invertMouseScroll = newVal }
                         )
                     )
+
+                    Divider()
+
+                    OverrideToggleRow(
+                        label: "Invert horizontal scroll",
+                        globalValue: appState.scrollSettings.invertHorizontalScroll,
+                        override: $profile.scroll.transform(
+                            get: { $0?.invertHorizontalScroll },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.invertHorizontalScroll = newVal }
+                        )
+                    )
                 }
             }
+
+            GestureOverrideSection(
+                gestureSettings: appState.gestureSettings,
+                gestureOverride: $profile.gesture,
+                ensureOverride: { ensureGestureOverride() }
+            )
         }
         .onChange(of: profile) { newValue in
             appState.updateProfile(newValue)
@@ -793,6 +978,12 @@ private struct AppProfileDetailView: View {
     private func ensureScrollOverride() {
         if profile.scroll == nil {
             profile.scroll = ScrollOverride()
+        }
+    }
+
+    private func ensureGestureOverride() {
+        if profile.gesture == nil {
+            profile.gesture = GestureOverride()
         }
     }
 }
@@ -834,7 +1025,7 @@ private struct OverridePickerRow<T: Hashable & Identifiable & CaseIterable>: Vie
     let allCases: T.AllCases
 
     private var displayName: (T) -> String {
-        { ($0 as? RemapActionPreset)?.displayName ?? ($0 as? ScrollSmoothness)?.displayName ?? $0.rawValue }
+        { ($0 as? RemapActionPreset)?.displayName ?? ($0 as? ScrollSmoothness)?.displayName ?? ($0 as? GestureActionPreset)?.displayName ?? $0.rawValue }
     }
 
     var body: some View {
@@ -984,13 +1175,469 @@ private struct AppPickerSheet: View {
     }
 }
 
+// MARK: - Devices
+
+private struct DeviceProfilesView: View {
+    @ObservedObject var appState: AppState
+    @State private var selectedProfileID: UUID?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MCStyle.sectionSpacing) {
+                SectionHeader(title: "Connected Mice", systemImage: "computermouse")
+
+                if appState.connectedDevices.isEmpty {
+                    SectionBox {
+                        VStack(spacing: 8) {
+                            Image(systemName: "computermouse")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.tertiary)
+                            Text("No mice detected")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Text("Connect a mouse to see it here.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                } else {
+                    SectionBox {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(appState.connectedDevices.enumerated()), id: \.element.id) { index, device in
+                                if index > 0 {
+                                    Divider()
+                                }
+                                ConnectedDeviceRow(
+                                    device: device,
+                                    isActive: appState.activeDeviceKey == device.deviceKey,
+                                    hasProfile: appState.deviceProfiles.contains(where: { $0.deviceKey == device.deviceKey }),
+                                    onSelect: {
+                                        appState.setActiveDevice(device.deviceKey)
+                                    },
+                                    onAddProfile: {
+                                        let profile = DeviceProfile(
+                                            id: UUID(),
+                                            deviceKey: device.deviceKey,
+                                            displayName: device.displayLabel,
+                                            remap: nil,
+                                            scroll: nil,
+                                            gesture: nil
+                                        )
+                                        appState.addDeviceProfile(profile)
+                                        selectedProfileID = profile.id
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    if appState.connectedDevices.count > 1 {
+                        Text("Multiple mice detected. Select the active device to apply its profile.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .padding(.leading, 4)
+                    }
+                }
+
+                HStack {
+                    SectionHeader(title: "Device Profiles", systemImage: "list.bullet.rectangle")
+                    Spacer()
+                }
+
+                if appState.deviceProfiles.isEmpty {
+                    SectionBox {
+                        VStack(spacing: 8) {
+                            Image(systemName: "externaldrive")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.tertiary)
+                            Text("No device profiles yet")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Text("Add a profile from a connected device above to customize per-device settings.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                    }
+                } else {
+                    SectionBox {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(appState.deviceProfiles.enumerated()), id: \.element.id) { index, profile in
+                                if index > 0 {
+                                    Divider()
+                                }
+                                DeviceProfileRow(
+                                    profile: profile,
+                                    isActive: appState.activeDeviceKey == profile.deviceKey,
+                                    isSelected: selectedProfileID == profile.id,
+                                    onSelect: {
+                                        withAnimation(.easeInOut(duration: 0.15)) {
+                                            selectedProfileID = selectedProfileID == profile.id ? nil : profile.id
+                                        }
+                                    },
+                                    onDelete: {
+                                        appState.removeDeviceProfile(profile)
+                                        if selectedProfileID == profile.id {
+                                            selectedProfileID = nil
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if let profileID = selectedProfileID,
+                   let index = appState.deviceProfiles.firstIndex(where: { $0.id == profileID }) {
+                    DeviceProfileDetailView(
+                        appState: appState,
+                        profile: $appState.deviceProfiles[index]
+                    )
+                }
+
+                Text("Customize remap/scroll settings per device. Device settings take priority over app-specific settings.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.leading, 4)
+
+                Spacer()
+            }
+            .padding(24)
+        }
+    }
+}
+
+private struct ConnectedDeviceRow: View {
+    let device: HIDDeviceInfo
+    let isActive: Bool
+    let hasProfile: Bool
+    let onSelect: () -> Void
+    let onAddProfile: () -> Void
+
+    var body: some View {
+        HStack {
+            Image(systemName: "computermouse.fill")
+                .foregroundStyle(isActive ? MCStyle.accent : .secondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(device.productName)
+                    .font(.body)
+                Text(device.deviceKey)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Spacer()
+
+            if !hasProfile {
+                Button("Add Profile") {
+                    onAddProfile()
+                }
+                .controlSize(.small)
+            }
+
+            Button {
+                onSelect()
+            } label: {
+                Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isActive ? MCStyle.accent : .secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+private struct DeviceProfileRow: View {
+    let profile: DeviceProfile
+    let isActive: Bool
+    let isSelected: Bool
+    let onSelect: () -> Void
+    let onDelete: () -> Void
+
+    private var overrideSummary: String {
+        var parts: [String] = []
+        if profile.remap != nil { parts.append("Remap") }
+        if profile.scroll != nil { parts.append("Scroll") }
+        if profile.gesture != nil { parts.append("Gesture") }
+        return parts.isEmpty ? "No overrides" : parts.joined(separator: ", ")
+    }
+
+    var body: some View {
+        HStack {
+            Image(systemName: "computermouse.fill")
+                .foregroundStyle(isActive ? MCStyle.accent : .secondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(profile.displayName)
+                    .font(.body)
+                Text(overrideSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .controlSize(.small)
+
+            Image(systemName: isSelected ? "chevron.up" : "chevron.down")
+                .foregroundStyle(.tertiary)
+                .font(.caption)
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture { onSelect() }
+    }
+}
+
+private struct DeviceProfileDetailView: View {
+    @ObservedObject var appState: AppState
+    @Binding var profile: DeviceProfile
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MCStyle.sectionSpacing) {
+            SectionHeader(title: "Remap Override", systemImage: "arrow.left.arrow.right")
+
+            SectionBox {
+                VStack(alignment: .leading, spacing: MCStyle.itemSpacing) {
+                    OverrideToggleRow(
+                        label: "Enable remapping",
+                        globalValue: appState.remapSettings.enabled,
+                        override: $profile.remap.transform(
+                            get: { $0?.enabled },
+                            set: { newVal in ensureRemapOverride(); profile.remap?.enabled = newVal }
+                        )
+                    )
+
+                    Divider()
+
+                    OverridePickerRow(
+                        label: "Button 4",
+                        globalValue: appState.remapSettings.button4Preset,
+                        override: $profile.remap.transform(
+                            get: { $0?.button4Preset },
+                            set: { newVal in ensureRemapOverride(); profile.remap?.button4Preset = newVal }
+                        ),
+                        allCases: RemapActionPreset.allCases
+                    )
+
+                    Divider()
+
+                    OverridePickerRow(
+                        label: "Button 5",
+                        globalValue: appState.remapSettings.button5Preset,
+                        override: $profile.remap.transform(
+                            get: { $0?.button5Preset },
+                            set: { newVal in ensureRemapOverride(); profile.remap?.button5Preset = newVal }
+                        ),
+                        allCases: RemapActionPreset.allCases
+                    )
+                }
+            }
+
+            SectionHeader(title: "Scroll Override", systemImage: "arrow.up.and.down.circle")
+
+            SectionBox {
+                VStack(alignment: .leading, spacing: MCStyle.itemSpacing) {
+                    OverrideToggleRow(
+                        label: "Enable smooth scrolling",
+                        globalValue: appState.scrollSettings.enabled,
+                        override: $profile.scroll.transform(
+                            get: { $0?.enabled },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.enabled = newVal }
+                        )
+                    )
+
+                    Divider()
+
+                    OverridePickerRow(
+                        label: "Smoothness",
+                        globalValue: appState.scrollSettings.smoothness,
+                        override: $profile.scroll.transform(
+                            get: { $0?.smoothness },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.smoothness = newVal }
+                        ),
+                        allCases: ScrollSmoothness.allCases
+                    )
+
+                    Divider()
+
+                    OverrideSpeedRow(
+                        globalValue: appState.scrollSettings.speed,
+                        override: $profile.scroll.transform(
+                            get: { $0?.speed },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.speed = newVal }
+                        )
+                    )
+
+                    Divider()
+
+                    OverrideSliderRow(
+                        label: "Acceleration",
+                        globalValue: appState.scrollSettings.acceleration,
+                        override: $profile.scroll.transform(
+                            get: { $0?.acceleration },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.acceleration = newVal }
+                        )
+                    )
+
+                    Divider()
+
+                    OverrideSliderRow(
+                        label: "Momentum",
+                        globalValue: appState.scrollSettings.momentum,
+                        override: $profile.scroll.transform(
+                            get: { $0?.momentum },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.momentum = newVal }
+                        )
+                    )
+
+                    Divider()
+
+                    OverrideToggleRow(
+                        label: "Invert scroll direction",
+                        globalValue: appState.scrollSettings.invertMouseScroll,
+                        override: $profile.scroll.transform(
+                            get: { $0?.invertMouseScroll },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.invertMouseScroll = newVal }
+                        )
+                    )
+
+                    Divider()
+
+                    OverrideToggleRow(
+                        label: "Invert horizontal scroll",
+                        globalValue: appState.scrollSettings.invertHorizontalScroll,
+                        override: $profile.scroll.transform(
+                            get: { $0?.invertHorizontalScroll },
+                            set: { newVal in ensureScrollOverride(); profile.scroll?.invertHorizontalScroll = newVal }
+                        )
+                    )
+                }
+            }
+
+            GestureOverrideSection(
+                gestureSettings: appState.gestureSettings,
+                gestureOverride: $profile.gesture,
+                ensureOverride: { ensureGestureOverride() }
+            )
+        }
+        .onChange(of: profile) { newValue in
+            appState.updateDeviceProfile(newValue)
+        }
+    }
+
+    private func ensureRemapOverride() {
+        if profile.remap == nil {
+            profile.remap = RemapOverride()
+        }
+    }
+
+    private func ensureScrollOverride() {
+        if profile.scroll == nil {
+            profile.scroll = ScrollOverride()
+        }
+    }
+
+    private func ensureGestureOverride() {
+        if profile.gesture == nil {
+            profile.gesture = GestureOverride()
+        }
+    }
+}
+
+// MARK: - Gesture Override Section
+
+private struct GestureOverrideSection: View {
+    let gestureSettings: GestureSettings
+    @Binding var gestureOverride: GestureOverride?
+    let ensureOverride: () -> Void
+
+    var body: some View {
+        SectionHeader(title: "Gesture Override", systemImage: "hand.draw")
+
+        SectionBox {
+            VStack(alignment: .leading, spacing: MCStyle.itemSpacing) {
+                OverrideToggleRow(
+                    label: "Enable gestures",
+                    globalValue: gestureSettings.enabled,
+                    override: $gestureOverride.transform(
+                        get: { $0?.enabled },
+                        set: { newVal in ensureOverride(); gestureOverride?.enabled = newVal }
+                    )
+                )
+
+                Divider()
+
+                OverridePickerRow(
+                    label: "Swipe Up",
+                    globalValue: gestureSettings.swipeUp,
+                    override: $gestureOverride.transform(
+                        get: { $0?.swipeUp },
+                        set: { newVal in ensureOverride(); gestureOverride?.swipeUp = newVal }
+                    ),
+                    allCases: GestureActionPreset.allCases
+                )
+
+                Divider()
+
+                OverridePickerRow(
+                    label: "Swipe Down",
+                    globalValue: gestureSettings.swipeDown,
+                    override: $gestureOverride.transform(
+                        get: { $0?.swipeDown },
+                        set: { newVal in ensureOverride(); gestureOverride?.swipeDown = newVal }
+                    ),
+                    allCases: GestureActionPreset.allCases
+                )
+
+                Divider()
+
+                OverridePickerRow(
+                    label: "Swipe Left",
+                    globalValue: gestureSettings.swipeLeft,
+                    override: $gestureOverride.transform(
+                        get: { $0?.swipeLeft },
+                        set: { newVal in ensureOverride(); gestureOverride?.swipeLeft = newVal }
+                    ),
+                    allCases: GestureActionPreset.allCases
+                )
+
+                Divider()
+
+                OverridePickerRow(
+                    label: "Swipe Right",
+                    globalValue: gestureSettings.swipeRight,
+                    override: $gestureOverride.transform(
+                        get: { $0?.swipeRight },
+                        set: { newVal in ensureOverride(); gestureOverride?.swipeRight = newVal }
+                    ),
+                    allCases: GestureActionPreset.allCases
+                )
+            }
+        }
+    }
+}
+
 // MARK: - Binding Helpers
 
 private extension Binding {
     func transform<T>(get: @escaping (Value) -> T, set: @escaping (T) -> Void) -> Binding<T> {
         Binding<T>(
             get: { get(self.wrappedValue) },
-            set: { newVal in set(newVal); self.wrappedValue = self.wrappedValue }
+            set: { newVal in set(newVal) }
         )
     }
 }
@@ -1030,13 +1677,25 @@ private struct AboutView: View {
                     Label("Privacy", systemImage: "lock.shield")
                         .font(.subheadline.weight(.semibold))
 
-                    Text("MouseCraft는 완전히 로컬에서 동작하며, 텔레메트리를 전송하지 않습니다. 입력 이벤트는 저장되지 않으며, 키보드 이벤트는 모니터링하지 않습니다.")
+                    Text("MouseCraft runs entirely on your Mac with no telemetry. Input events are never stored, and keyboard events are never monitored.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .lineSpacing(3)
                 }
             }
             .padding(.horizontal, 40)
+
+            Spacer()
+                .frame(height: 16)
+
+            Button("Check for Updates...") {
+                if let url = URL(string: "https://github.com/jinhyuk9714/MouseCraft/releases") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(MCStyle.accent)
+            .font(.callout)
 
             Spacer()
         }
