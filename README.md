@@ -2,6 +2,8 @@
 
 <a id="한국어"></a>
 
+<img src="App/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="128" alt="MouseCraft Icon"/>
+
 # MouseCraft
 
 **서드파티 마우스를 macOS 네이티브처럼**
@@ -103,6 +105,8 @@ Copyright 2026 MouseCraft contributors. All rights reserved.
 <div align="center">
 
 <a id="english"></a>
+
+<img src="App/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="128" alt="MouseCraft Icon"/>
 
 # MouseCraft
 
