@@ -12,6 +12,11 @@ final class EventTapManager {
     private var installedRunLoop: CFRunLoop?
     private var mode: Mode = .listenOnly
     private var onEvent: ((MouseEventSample) -> EventProcessingDecision)?
+    var onTapReEnabled: (() -> Void)?
+
+    deinit {
+        stop()
+    }
 
     func start(mode: Mode, onEvent: @escaping (MouseEventSample) -> EventProcessingDecision) -> Bool {
         stop()
@@ -21,7 +26,8 @@ final class EventTapManager {
         let mask: CGEventMask =
             (1 << CGEventType.otherMouseDown.rawValue) |
             (1 << CGEventType.otherMouseUp.rawValue) |
-            (1 << CGEventType.scrollWheel.rawValue)
+            (1 << CGEventType.scrollWheel.rawValue) |
+            (1 << CGEventType.otherMouseDragged.rawValue)
 
         let tapOptions: CGEventTapOptions = (mode == .listenOnly) ? .listenOnly : .defaultTap
 
@@ -71,6 +77,7 @@ final class EventTapManager {
         installedRunLoop = nil
         eventTap = nil
         onEvent = nil
+        onTapReEnabled = nil
         mode = .listenOnly
     }
 
@@ -85,19 +92,28 @@ final class EventTapManager {
             if let tap = manager.eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
+            manager.onTapReEnabled?()
             return Unmanaged.passUnretained(event)
         }
 
+        let isButtonEvent = type == .otherMouseDown || type == .otherMouseUp || type == .otherMouseDragged
+        let location = event.location
+
         let sample = MouseEventSample(
             type: type,
-            buttonNumber: type == .otherMouseDown || type == .otherMouseUp
+            buttonNumber: isButtonEvent
                 ? Int(event.getIntegerValueField(.mouseEventButtonNumber))
                 : nil,
+            deltaX: type == .scrollWheel
+                ? Int32(event.getIntegerValueField(.scrollWheelEventDeltaAxis2))
+                : 0,
             deltaY: type == .scrollWheel
                 ? Int32(event.getIntegerValueField(.scrollWheelEventDeltaAxis1))
                 : 0,
             timestamp: event.timestamp,
-            sourceUserData: event.getIntegerValueField(.eventSourceUserData)
+            sourceUserData: event.getIntegerValueField(.eventSourceUserData),
+            locationX: location.x,
+            locationY: location.y
         )
 
         let decision = manager.onEvent?(sample) ?? .passThrough

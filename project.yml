@@ -5,7 +5,7 @@ options:
   createIntermediateGroups: true
 settings:
   base:
-    PRODUCT_BUNDLE_IDENTIFIER: "com.yourname.MouseCraft"
+    PRODUCT_BUNDLE_IDENTIFIER: "com.jinhyuk9714.MouseCraft"
 targets:
   MouseCraft:
     type: application
@@ -15,7 +15,11 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/MouseCraft.entitlements
         CODE_SIGN_IDENTITY: "-"
+      configs:
+        Release:
+          ENABLE_HARDENED_RUNTIME: YES
   MouseCraftTests:
     type: bundle.unit-test
     platform: macOS

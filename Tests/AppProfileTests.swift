@@ -187,4 +187,61 @@ final class AppProfileTests: XCTestCase {
         let profileScroll = resolvedScroll(global: globalScroll, override: ScrollOverride(enabled: true, smoothness: .regular, speed: nil, invertMouseScroll: nil))
         XCTAssertTrue(needsActiveFilter(remap: globalRemap, scroll: profileScroll))
     }
+
+    // MARK: - Horizontal Scroll Override
+
+    func testResolvedScrollHorizontalInvertOverride() {
+        let global = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                    invertMouseScroll: false, invertHorizontalScroll: false)
+        let override = ScrollOverride(invertHorizontalScroll: true)
+        let result = resolvedScroll(global: global, override: override)
+        XCTAssertTrue(result.invertHorizontalScroll)
+        XCTAssertFalse(result.invertMouseScroll) // not affected
+    }
+
+    func testResolvedScrollNilHorizontalInvertInheritsGlobal() {
+        let global = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0,
+                                    invertMouseScroll: false, invertHorizontalScroll: true)
+        let override = ScrollOverride()
+        let result = resolvedScroll(global: global, override: override)
+        XCTAssertTrue(result.invertHorizontalScroll) // inherited from global
+    }
+
+    func testNeedsActiveFilterWithHorizontalInvertOnly() {
+        let remap = RemapSettings(enabled: false, button4Preset: .none, button5Preset: .none)
+        let scroll = ScrollSettings(enabled: true, smoothness: .off, speed: 1.0,
+                                    invertMouseScroll: false, invertHorizontalScroll: true)
+        XCTAssertTrue(needsActiveFilter(remap: remap, scroll: scroll))
+    }
+
+    // MARK: - Gesture Override
+
+    func testResolvedGestureWithPartialOverrideMerges() {
+        let global = GestureSettings.default
+        let override = GestureOverride(enabled: true, swipeUp: .launchpad)
+        let result = resolvedGesture(global: global, override: override)
+
+        XCTAssertTrue(result.enabled)
+        XCTAssertEqual(result.swipeUp, .launchpad)
+        XCTAssertEqual(result.swipeDown, .appExpose) // inherited
+        XCTAssertEqual(result.triggerButton, 3) // inherited
+    }
+
+    func testResolvedGestureThresholdIsClamped() {
+        let global = GestureSettings.default
+        let override = GestureOverride(dragThreshold: 200)
+        let result = resolvedGesture(global: global, override: override)
+        XCTAssertEqual(result.dragThreshold, 100) // clamped
+
+        let override2 = GestureOverride(dragThreshold: 10)
+        let result2 = resolvedGesture(global: global, override: override2)
+        XCTAssertEqual(result2.dragThreshold, 30) // clamped
+    }
+
+    func testResolvedGestureEmptyOverrideReturnsGlobal() {
+        let global = GestureSettings.default
+        let override = GestureOverride()
+        let result = resolvedGesture(global: global, override: override)
+        XCTAssertEqual(result, global)
+    }
 }

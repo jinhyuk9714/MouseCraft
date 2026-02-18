@@ -8,9 +8,12 @@ enum EventConstants {
 struct MouseEventSample {
     let type: CGEventType
     let buttonNumber: Int?
+    let deltaX: Int32
     let deltaY: Int32
     let timestamp: UInt64
     let sourceUserData: Int64
+    let locationX: Double
+    let locationY: Double
 
     var isSynthetic: Bool {
         sourceUserData == EventConstants.syntheticEventMarker

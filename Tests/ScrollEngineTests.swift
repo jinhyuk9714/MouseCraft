@@ -204,7 +204,66 @@ final class ScrollEngineTests: XCTestCase {
         XCTAssertTrue(handled)
     }
 
-    private func makeSample(deltaY: Int32) -> MouseEventSample {
-        MouseEventSample(type: .scrollWheel, buttonNumber: nil, deltaY: deltaY, timestamp: 0, sourceUserData: 0)
+    // MARK: - Horizontal scroll tests
+
+    func testHorizontalDeltaOnlyIsHandled() {
+        let engine = ScrollEngine()
+        let settings = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0, invertMouseScroll: false)
+
+        let handled = engine.handle(makeSample(deltaX: 8), settings: settings)
+
+        XCTAssertTrue(handled)
+    }
+
+    func testDiagonalScrollIsHandled() {
+        let engine = ScrollEngine()
+        let settings = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0, invertMouseScroll: false)
+
+        let handled = engine.handle(makeSample(deltaX: 5, deltaY: 10), settings: settings)
+
+        XCTAssertTrue(handled)
+    }
+
+    func testBothAxesZeroNotHandled() {
+        let engine = ScrollEngine()
+        let settings = ScrollSettings(enabled: true, smoothness: .regular, speed: 1.0, invertMouseScroll: false)
+
+        let handled = engine.handle(makeSample(deltaX: 0, deltaY: 0), settings: settings)
+
+        XCTAssertFalse(handled)
+    }
+
+    func testHorizontalPassThroughWithInvert() {
+        let engine = ScrollEngine()
+        let settings = ScrollSettings(enabled: true, smoothness: .off, speed: 1.0,
+                                      invertMouseScroll: false, invertHorizontalScroll: true)
+
+        let handled = engine.handle(makeSample(deltaX: 5), settings: settings)
+
+        XCTAssertTrue(handled)
+    }
+
+    func testHorizontalPassThroughWithSpeed() {
+        let engine = ScrollEngine()
+        let settings = ScrollSettings(enabled: true, smoothness: .off, speed: 2.0,
+                                      invertMouseScroll: false, invertHorizontalScroll: false)
+
+        let handled = engine.handle(makeSample(deltaX: 5), settings: settings)
+
+        XCTAssertTrue(handled)
+    }
+
+    func testHorizontalOffModeNoTransformNotIntercepted() {
+        let engine = ScrollEngine()
+        let settings = ScrollSettings(enabled: true, smoothness: .off, speed: 1.0,
+                                      invertMouseScroll: false, invertHorizontalScroll: false)
+
+        let handled = engine.handle(makeSample(deltaX: 5), settings: settings)
+
+        XCTAssertFalse(handled)
+    }
+
+    private func makeSample(deltaX: Int32 = 0, deltaY: Int32 = 0) -> MouseEventSample {
+        MouseEventSample(type: .scrollWheel, buttonNumber: nil, deltaX: deltaX, deltaY: deltaY, timestamp: 0, sourceUserData: 0, locationX: 0, locationY: 0)
     }
 }

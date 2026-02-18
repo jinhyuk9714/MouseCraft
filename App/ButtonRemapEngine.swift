@@ -72,11 +72,11 @@ final class ButtonRemapEngine {
 
             downEvent.flags = shortcut.modifiers
             downEvent.setIntegerValueField(.eventSourceUserData, value: EventConstants.syntheticEventMarker)
-            downEvent.post(tap: .cghidEventTap)
+            downEvent.post(tap: .cgAnnotatedSessionEventTap)
 
             upEvent.flags = shortcut.modifiers
             upEvent.setIntegerValueField(.eventSourceUserData, value: EventConstants.syntheticEventMarker)
-            upEvent.post(tap: .cghidEventTap)
+            upEvent.post(tap: .cgAnnotatedSessionEventTap)
         }
     }
 }

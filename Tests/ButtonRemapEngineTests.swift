@@ -45,6 +45,6 @@ final class ButtonRemapEngineTests: XCTestCase {
     }
 
     private func makeSample(type: CGEventType, buttonNumber: Int? = nil, deltaY: Int32 = 0) -> MouseEventSample {
-        MouseEventSample(type: type, buttonNumber: buttonNumber, deltaY: deltaY, timestamp: 0, sourceUserData: 0)
+        MouseEventSample(type: type, buttonNumber: buttonNumber, deltaX: 0, deltaY: deltaY, timestamp: 0, sourceUserData: 0, locationX: 0, locationY: 0)
     }
 }
