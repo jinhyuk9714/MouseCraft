@@ -141,6 +141,8 @@ final class AppState: ObservableObject {
     private var isInternalDisable = false
     private var isReconfigureScheduled = false
     private var permissionTimer: Timer?
+    private var tapRetryCount = 0
+    private static let maxTapRetries = 5
 
     deinit {
         permissionTimer?.invalidate()
@@ -187,6 +189,12 @@ final class AppState: ObservableObject {
                 self.accessibilityTrusted = current
                 if current && self.enabled {
                     self.reconfigurePipeline()
+                }
+                // Auto-recover: if permission was just granted and enabled was
+                // turned off by a failed tap attempt, re-enable automatically.
+                if current && !self.enabled && self.statusMessage != nil {
+                    self.statusMessage = nil
+                    self.enabled = true
                 }
             }
         }
@@ -427,6 +435,7 @@ final class AppState: ObservableObject {
             if !isInternalDisable {
                 statusMessage = nil
             }
+            tapRetryCount = 0
             return
         }
 
@@ -453,13 +462,28 @@ final class AppState: ObservableObject {
                 accessibilityTrusted = true
             }
             statusMessage = nil
+            tapRetryCount = 0
         } else {
+            // Event tap creation can fail transiently after reboot (TCC daemon
+            // not yet ready). Retry a few times before giving up.
+            tapRetryCount += 1
+            if tapRetryCount <= Self.maxTapRetries {
+                let delay = Double(tapRetryCount) * 1.0
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self, self.enabled else { return }
+                    self.reconfigurePipeline()
+                }
+                statusMessage = nil
+                return
+            }
+
             refreshPermissions()
             if !accessibilityTrusted {
                 statusMessage = "Accessibility permission is required to enable MouseCraft."
             } else {
                 statusMessage = "Event tap could not start. Verify Accessibility permission."
             }
+            tapRetryCount = 0
             isInternalDisable = true
             enabled = false
             isInternalDisable = false
