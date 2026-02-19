@@ -47,15 +47,29 @@ CVDisplayLink 기반 픽셀 보간 스크롤. 프레임 단위 동기화로 Appl
 ### 다운로드
 [Releases](https://github.com/jinhyuk9714/MouseCraft/releases/latest) 페이지에서 최신 **MouseCraft.dmg**를 받으세요. DMG를 열고 MouseCraft를 응용 프로그램 폴더로 드래그하면 끝.
 
+릴리스에는 다음 아티팩트가 함께 제공됩니다:
+- `MouseCraft.dmg` (기본 배포)
+- `MouseCraft.zip` (대체 배포)
+- `SHA256SUMS.txt` (체크섬 검증용)
+
+릴리스 자동화는 GitHub Actions 기준으로 `v*` 태그 푸시 시 자동 실행되며, `workflow_dispatch`로 수동 실행도 가능합니다.
+
 ### 소스에서 빌드
 macOS 13.0 이상, Xcode 15 이상, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) 필요.
 
 ```bash
 make gen   # Xcode 프로젝트 생성
 make run   # 빌드 후 실행
+make release package   # Release + DMG/ZIP/SHA256 생성
 ```
 
-첫 실행 시 **손쉬운 사용(Accessibility)** 과 **입력 모니터링(Input Monitoring)** 권한을 허용해 주세요.
+선택적으로 서명된 DMG를 노타리제이션하려면:
+
+```bash
+make notarize TEAM_ID=XXXXX NOTARIZE_KEYCHAIN_PROFILE=my-profile
+```
+
+첫 실행 시 **손쉬운 사용(Accessibility)** 권한을 허용해 주세요.
 
 ---
 
@@ -72,10 +86,9 @@ make run   # 빌드 후 실행
 
 ## 권한
 
-MouseCraft는 두 가지 시스템 권한이 필요합니다:
+MouseCraft는 다음 시스템 권한이 필요합니다:
 
 - **손쉬운 사용(Accessibility)** — CGEventTap으로 마우스 이벤트를 가로채고 수정하기 위해 필요
-- **입력 모니터링(Input Monitoring)** — macOS 15 이상에서 HID 레벨 이벤트 탭에 필요
 
 그게 전부입니다. 네트워크 접근 없음, 파일 접근 없음, 분석 없음. 이 앱은 네트워크 호출을 **단 한 번도** 하지 않습니다.
 
@@ -151,15 +164,29 @@ Back up and restore all settings as JSON. Easy migration between machines.
 ### Download
 Grab the latest **MouseCraft.dmg** from the [Releases](https://github.com/jinhyuk9714/MouseCraft/releases/latest) page. Open the DMG and drag MouseCraft to Applications.
 
+Release assets include:
+- `MouseCraft.dmg` (primary distribution)
+- `MouseCraft.zip` (alternate distribution)
+- `SHA256SUMS.txt` (integrity verification)
+
+Release automation runs on GitHub Actions for `v*` tag pushes, and also supports manual `workflow_dispatch` runs.
+
 ### Build from Source
 Requires macOS 13.0+, Xcode 15+, and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```bash
 make gen   # Generate Xcode project
 make run   # Build and launch
+make release package   # Build Release + DMG/ZIP/SHA256
 ```
 
-On first launch, grant **Accessibility** and **Input Monitoring** permissions when prompted.
+To notarize a signed DMG (optional):
+
+```bash
+make notarize TEAM_ID=XXXXX NOTARIZE_KEYCHAIN_PROFILE=my-profile
+```
+
+On first launch, grant **Accessibility** permission when prompted.
 
 ---
 
@@ -176,10 +203,9 @@ On first launch, grant **Accessibility** and **Input Monitoring** permissions wh
 
 ## Permissions
 
-MouseCraft requires two system permissions:
+MouseCraft requires one system permission:
 
 - **Accessibility** — to intercept and modify mouse events via CGEventTap
-- **Input Monitoring** — required on macOS 15+ for HID-level event taps
 
 That's it. No network access, no file access, no analytics. The app makes **zero** network calls.
 

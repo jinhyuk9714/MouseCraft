@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Also publish a GitHub Release"
+        required: false
+        type: boolean
+        default: false
+      release_tag:
+        description: "Tag to publish on manual run (e.g. v0.2.0)"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build_test:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: make gen
+
+      - name: Build Debug
+        run: make build
+
+      - name: Run tests
+        run: make test
+
+  package:
+    needs: build_test
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: make gen
+
+      - name: Build package artifacts
+        run: make package
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mousecraft-artifacts
+          if-no-files-found: error
+          path: |
+            .build/MouseCraft.dmg
+            .build/MouseCraft.zip
+            .build/SHA256SUMS.txt
+
+  publish_release:
+    needs: package
+    runs-on: macos-14
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_release == true)
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mousecraft-artifacts
+          path: artifacts
+
+      - name: Resolve release tag
+        id: resolve_tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ inputs.release_tag }}"
+          fi
+
+          if [[ -z "${TAG}" ]]; then
+            echo "Manual publish requires release_tag (e.g. v0.2.0)." >&2
+            exit 1
+          fi
+
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.resolve_tag.outputs.tag }}
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          generate_release_notes: true
+          files: |
+            artifacts/MouseCraft.dmg
+            artifacts/MouseCraft.zip
+            artifacts/SHA256SUMS.txt
+          body: |
+            Automated release artifacts (DMG + ZIP + SHA256 checksums).
+            Note: notarization is currently a manual follow-up step (`make notarize`).
