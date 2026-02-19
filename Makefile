@@ -44,12 +44,13 @@ archive:
 	@echo "Archive at: $(ARCHIVE_PATH)"
 
 dmg: release
-	@echo "Creating DMG (hybrid + compressed)…"
-	@rm -f "$(DMG_PATH)" "$(DMG_RW_PATH)"
-	@hdiutil makehybrid -hfs -hfs-volume-name "$(APP_NAME)" \
-		-o "$(DMG_RW_PATH)" "$(RELEASE_APP_PATH)"
-	@hdiutil convert "$(DMG_RW_PATH)" -format UDZO -o "$(DMG_PATH)"
-	@rm -f "$(DMG_RW_PATH)"
+	@echo "Creating DMG…"
+	@rm -f "$(DMG_PATH)"
+	@rm -rf .build/dmg-staging && mkdir -p .build/dmg-staging
+	@ditto "$(RELEASE_APP_PATH)" ".build/dmg-staging/$(APP_NAME).app"
+	@hdiutil create -volname "Install $(APP_NAME)" -srcfolder .build/dmg-staging \
+		-ov -format UDZO "$(DMG_PATH)"
+	@rm -rf .build/dmg-staging
 	@echo "DMG at: $(DMG_PATH)"
 
 zip: release
