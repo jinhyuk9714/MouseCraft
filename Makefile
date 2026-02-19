@@ -7,8 +7,11 @@ APP_PATH := .build/Build/Products/Debug/$(APP_NAME).app
 RELEASE_APP_PATH := .build/Build/Products/Release/$(APP_NAME).app
 ARCHIVE_PATH := .build/$(APP_NAME).xcarchive
 DMG_PATH := .build/$(APP_NAME).dmg
+DMG_RW_PATH := .build/$(APP_NAME)-rw.dmg
+ZIP_PATH := .build/$(APP_NAME).zip
+CHECKSUM_PATH := .build/SHA256SUMS.txt
 
-.PHONY: gen build test clean run release archive dmg notarize
+.PHONY: gen build test clean run release archive package dmg zip checksums notarize
 
 gen:
 	@command -v xcodegen >/dev/null 2>&1 || { echo "xcodegen not found. Install with: brew install xcodegen"; exit 1; }
@@ -27,7 +30,6 @@ test:
 
 run: build
 	@tccutil reset Accessibility $(BUNDLE_ID) 2>/dev/null || true
-	@tccutil reset ListenEvent $(BUNDLE_ID) 2>/dev/null || true
 	@echo "Launching $(APP_NAME)…"
 	@open $(APP_PATH)
 
@@ -42,11 +44,28 @@ archive:
 	@echo "Archive at: $(ARCHIVE_PATH)"
 
 dmg: release
-	@echo "Creating DMG…"
-	@rm -f $(DMG_PATH)
-	@hdiutil create -volname "$(APP_NAME)" -srcfolder $(RELEASE_APP_PATH) \
-		-ov -format UDZO $(DMG_PATH)
+	@echo "Creating DMG (hybrid + compressed)…"
+	@rm -f "$(DMG_PATH)" "$(DMG_RW_PATH)"
+	@hdiutil makehybrid -hfs -hfs-volume-name "$(APP_NAME)" \
+		-o "$(DMG_RW_PATH)" "$(RELEASE_APP_PATH)"
+	@hdiutil convert "$(DMG_RW_PATH)" -format UDZO -o "$(DMG_PATH)"
+	@rm -f "$(DMG_RW_PATH)"
 	@echo "DMG at: $(DMG_PATH)"
+
+zip: release
+	@echo "Creating ZIP…"
+	@rm -f "$(ZIP_PATH)"
+	@ditto -c -k --sequesterRsrc --keepParent "$(RELEASE_APP_PATH)" "$(ZIP_PATH)"
+	@echo "ZIP at: $(ZIP_PATH)"
+
+checksums: dmg zip
+	@echo "Generating SHA256 checksums…"
+	@shasum -a 256 "$(DMG_PATH)" "$(ZIP_PATH)" > "$(CHECKSUM_PATH)"
+	@echo "Checksums at: $(CHECKSUM_PATH)"
+
+package: dmg zip checksums
+	@echo "Package artifacts ready:"
+	@ls -lh "$(DMG_PATH)" "$(ZIP_PATH)" "$(CHECKSUM_PATH)"
 
 # Usage: make notarize TEAM_ID=XXXX NOTARIZE_KEYCHAIN_PROFILE=my-profile
 TEAM_ID ?= UNSET
@@ -64,6 +83,8 @@ notarize: dmg
 		--wait
 	@echo "Stapling notarization ticket to DMG…"
 	@xcrun stapler staple $(DMG_PATH)
+	@echo "Validating stapled ticket…"
+	@xcrun stapler validate $(DMG_PATH)
 	@echo "Notarization complete. Distribute: $(DMG_PATH)"
 
 clean:
