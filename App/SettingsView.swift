@@ -1119,8 +1119,10 @@ private struct AppPickerSheet: View {
     private var runningApps: [NSRunningApplication] {
         NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
-            .filter { $0.bundleIdentifier != nil }
-            .filter { !existingBundleIDs.contains($0.bundleIdentifier!) }
+            .filter { app in
+                guard let bundleID = app.bundleIdentifier, !bundleID.isEmpty else { return false }
+                return !existingBundleIDs.contains(bundleID)
+            }
             .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
     }
 
@@ -1163,7 +1165,7 @@ private struct AppPickerSheet: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        let bundleID = app.bundleIdentifier ?? ""
+                        guard let bundleID = app.bundleIdentifier, !bundleID.isEmpty else { return }
                         let name = app.localizedName ?? bundleID
                         onSelect(bundleID, name)
                         dismiss()

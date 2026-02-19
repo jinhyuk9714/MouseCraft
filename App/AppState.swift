@@ -53,7 +53,11 @@ final class AppState: ObservableObject {
         didSet {
             guard !isBootstrapping else { return }
             persistGeneralSettings()
-            schedulePipelineReconfigure()
+            // Internal disable path can set a failure message; avoid immediate
+            // reconfigure that would clear it before the user sees it.
+            if !isInternalDisable {
+                schedulePipelineReconfigure()
+            }
         }
     }
 

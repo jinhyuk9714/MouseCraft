@@ -52,13 +52,18 @@ final class EventTapManager {
             return false
         }
 
-        eventTap = tap
-        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        if let source = runLoopSource {
-            let rl = CFRunLoopGetCurrent()
-            CFRunLoopAddSource(rl, source, .commonModes)
-            installedRunLoop = rl
+        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
+            CFMachPortInvalidate(tap)
+            self.mode = .listenOnly
+            self.onEvent = nil
+            return false
         }
+
+        eventTap = tap
+        runLoopSource = source
+        let rl = CFRunLoopGetCurrent()
+        CFRunLoopAddSource(rl, source, .commonModes)
+        installedRunLoop = rl
         CGEvent.tapEnable(tap: tap, enable: true)
         return true
     }
