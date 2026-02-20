@@ -73,6 +73,19 @@ make notarize TEAM_ID=XXXXX NOTARIZE_KEYCHAIN_PROFILE=my-profile
 
 ---
 
+## 릴리스 검증 체크리스트
+
+릴리스 전/후 빠르게 확인할 수 있는 최소 점검 항목입니다.
+
+- [ ] `make release package` 빌드 성공
+- [ ] 생성된 `MouseCraft.dmg` 열기 및 `MouseCraft.app` 포함 확인
+- [ ] DMG에서 Applications로 드래그 후 실행 확인
+- [ ] 첫 실행 시 Accessibility 권한 요청/허용 확인
+- [ ] 메뉴 바 아이콘 표시 및 기본 스크롤 동작 확인
+- [ ] `SHA256SUMS.txt` 생성 및 체크섬 검증 확인
+
+---
+
 ## macOS 호환성
 
 | macOS 버전 | 지원 여부 |
@@ -187,6 +200,19 @@ make notarize TEAM_ID=XXXXX NOTARIZE_KEYCHAIN_PROFILE=my-profile
 ```
 
 On first launch, grant **Accessibility** permission when prompted.
+
+---
+
+## Release Validation Checklist
+
+Minimum checks to run before/after each release:
+
+- [ ] `make release package` succeeds
+- [ ] Open generated `MouseCraft.dmg` and verify `MouseCraft.app` is included
+- [ ] Drag app to Applications and confirm it launches
+- [ ] Accessibility permission prompt appears and can be granted on first launch
+- [ ] Menu bar icon appears and basic scrolling behavior works
+- [ ] `SHA256SUMS.txt` is generated and checksum verification passes
 
 ---
 
