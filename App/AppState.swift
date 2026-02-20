@@ -439,13 +439,9 @@ final class AppState: ObservableObject {
             return
         }
 
-        refreshPermissions()
-        if !accessibilityTrusted {
-            // Ask once and re-check immediately when user tries to enable.
-            _ = permissionManager.isAccessibilityTrusted(prompt: true)
-            refreshPermissions()
-        }
-
+        // Try starting the event tap first — don't prompt for permission
+        // before attempting, because AXIsProcessTrusted() can transiently
+        // return false right after boot even when permission is granted.
         syncRuntimeSettings()
         let mode: EventTapManager.Mode = anyConfigNeedsActiveFilter() ? .activeFilter : .listenOnly
         eventTap.onTapReEnabled = { [weak self] in
@@ -456,16 +452,13 @@ final class AppState: ObservableObject {
         }
 
         if started {
-            // If tap starts successfully, treat accessibility as effectively granted
-            // even when AX trust APIs transiently report false.
             if !accessibilityTrusted {
                 accessibilityTrusted = true
             }
             statusMessage = nil
             tapRetryCount = 0
         } else {
-            // Event tap creation can fail transiently after reboot (TCC daemon
-            // not yet ready). Retry a few times before giving up.
+            // Tap failed. Retry a few times (TCC daemon may still be loading).
             tapRetryCount += 1
             if tapRetryCount <= Self.maxTapRetries {
                 let delay = Double(tapRetryCount) * 1.0
@@ -477,8 +470,11 @@ final class AppState: ObservableObject {
                 return
             }
 
+            // All retries exhausted — now prompt for permission.
             refreshPermissions()
             if !accessibilityTrusted {
+                _ = permissionManager.isAccessibilityTrusted(prompt: true)
+                refreshPermissions()
                 statusMessage = "Accessibility permission is required to enable MouseCraft."
             } else {
                 statusMessage = "Event tap could not start. Verify Accessibility permission."
